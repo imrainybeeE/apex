@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FX preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #07110d; overflow: hidden; font: 13px system-ui, sans-serif; color: #EAF5EF; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #bar { position: fixed; left: 8px; top: 8px; display: flex; gap: 6px; flex-wrap: wrap; z-index: 2; }
+  #bar a { color: #EAF5EF; background: rgba(9,20,16,.7); padding: 4px 8px; border-radius: 6px; text-decoration: none; }
+  body.shot #bar { display: none; }
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<canvas id="c"></canvas>
+<script>
+// Preview harness for js/fx.js. Query: scene=eat|hit|threat|decompose|water-decompose|air-decompose|evolve,
+// p=0..1 (decompose/evolve progress), live=1 (animate), energy=0..100, load=<module list>, nolooks=1.
+(function () {
+  const q = new URLSearchParams(location.search);
+  const scripts = ['../js/fx.js'];
+  // ?load=config,core,shapes-inverts,... pulls in real modules (only name files that exist).
+  const load = (q.get('load') || '').split(',').filter(Boolean);
+  load.reverse().forEach(f => scripts.unshift('../js/' + f + '.js'));
+  window.__scripts = scripts;
+  scripts.forEach(s => document.write('<script src="' + s + '"><\/script>'));
+})();
+</script>
+<script>
+(function () {
+  'use strict';
+  const A = window.Apex = window.Apex || {};
+  const q = new URLSearchParams(location.search);
+  const scene = q.get('scene') || 'eat';
+  const P = parseFloat(q.get('p') || '0.4');
+  const live = q.get('live') === '1';
+  if (!live) document.body.classList.add('shot');
+
+  // ---- minimal stand-ins for core
+  const canvas = document.getElementById('c');
+  const W = A.W = innerWidth, H = A.H = innerHeight, D = A.DPR = 1;
+  canvas.width = W * D; canvas.height = H * D;
+  const ctx = canvas.getContext('2d');
+  const bus = {};
+  if (!A.on) { A.on = (n, f) => (bus[n] = bus[n] || []).push(f); A.emit = (n, d) => (bus[n] || []).forEach(f => f(d)); }
+  A.CFG = A.CFG || { DASH_TIME: .25, DECOMPOSE_TIME: 4.5, EVOLVE_TIME: 1.6, ENERGY_MAX: 100, WINDUP: .35, SATIATED_TIME: 6, AIR_ALT: .35, EAT_RATIO: .92 };
+  A.canEat = A.canEat || ((a, b) => b.alive !== false && b.r < a.r * ((a.stats && a.stats.eatRatio) || .92));
+  A.applyCam = A.applyCam || ((c, cam) => {
+    const z = cam.zoom;
+    c.setTransform(D * z, 0, 0, D * z, D * (W / 2 - cam.x * z + (cam.shakeX || 0)), D * (H / 2 - cam.y * z + (cam.shakeY || 0)));
+  });
+
+  const LOOKS = {
+    spider: { len: 1.3, wid: .85, habitat: 'land', pal: { body: '#5B4636', accent: '#D9B26A', belly: '#8C6F55' } },
+    frog: { len: 1.4, wid: .9, habitat: 'land', pal: { body: '#4FA05A', accent: '#C6F25A', belly: '#D9E8A8' } },
+    minnow: { len: 1.5, wid: .6, habitat: 'water', pal: { body: '#5AA8C8', accent: '#BFF6FF', belly: '#E0F4FA' } },
+    hawk: { len: 1.5, wid: 1.0, habitat: 'air', pal: { body: '#8B5E3C', accent: '#F2E35C', belly: '#E8D6B8' } },
+    aphid: { len: 1.0, wid: .8, habitat: 'land', pal: { body: '#9BD85B', accent: '#E3F7A8' } },
+    beetle: { len: 1.2, wid: .85, habitat: 'land', pal: { body: '#2F3E5A', accent: '#7FA0D8' } },
+    wolfspider: { len: 1.4, wid: .9, habitat: 'land', pal: { body: '#6B4A2E', accent: '#E0B070' } },
+    worm: { len: 1.8, wid: .4, habitat: 'land', pal: { body: '#C98A8A', accent: '#F0C0C0' } },
+    springtail: { len: 1.2, wid: .5, habitat: 'land', pal: { body: '#8A8FA8', accent: '#D8DCF0' } },
+    mite: { len: 1.0, wid: .8, habitat: 'land', pal: { body: '#A8442E', accent: '#F08A70' } },
+    pillbug: { len: 1.2, wid: .8, habitat: 'land', pal: { body: '#6A7078', accent: '#B8BEC8' } },
+    crab: { len: 1.1, wid: 1.0, habitat: 'water', pal: { body: '#C8604E', accent: '#F4A58E' } },
+    crayfish: { len: 1.5, wid: .7, habitat: 'water', pal: { body: '#A8442E', accent: '#F08A70' } },
+    urchin: { len: 1.0, wid: 1.0, habitat: 'water', pal: { body: '#4A3A6A', accent: '#A890D8' } },
+    seed: { len: 1, wid: 1, habitat: 'land', pal: { body: '#8BD36B', accent: '#C6F25A' } },
+  };
+  if (!A.LOOKS && q.get('nolooks') !== '1') A.LOOKS = LOOKS;
+  if (q.get('nolooks') === '1') A.LOOKS = {};
+
+  // Stand-in for core's drawCreature (used only when real shapes are absent).
+  if (!A.drawCreature) {
+    A.drawCreature = function (c, e, t) {
+      const look = (A.LOOKS && A.LOOKS[e.sp]) || LOOKS[e.sp] || LOOKS.spider;
+      const pal = look.pal, r = e.r;
+      const shy = e.alt || 0;
+      c.save();
+      c.fillStyle = 'rgba(0,0,0,0.22)';
+      c.beginPath(); c.ellipse(e.x + r * .15 + shy * r * 2, e.y + r * .25 + shy * r * 2, look.len * r, look.wid * r * .85, e.angle, 0, Math.PI * 2); c.fill();
+      c.translate(e.x, e.y); c.rotate(e.angle);
+      c.strokeStyle = pal.accent; c.lineWidth = Math.max(r * .1, .15); c.lineCap = 'round';
+      for (let i = 0; i < 4; i++) {
+        const x = r * (.55 - i * .4), sw = Math.sin(e.phase * 2 + i * 1.7) * r * .3;
+        c.beginPath(); c.moveTo(x, 0); c.lineTo(x + sw, r * look.wid * 1.4); c.moveTo(x, 0); c.lineTo(x - sw, -r * look.wid * 1.4); c.stroke();
+      }
+      const g = c.createRadialGradient(-r * .2, -r * .3, r * .1, 0, 0, r * look.len);
+      g.addColorStop(0, pal.belly || pal.accent); g.addColorStop(1, (e.pal && e.pal.body) || pal.body);
+      c.fillStyle = g;
+      c.beginPath(); c.ellipse(0, 0, look.len * r, look.wid * r, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = pal.accent; c.globalAlpha *= .6;
+      c.beginPath(); c.ellipse(-r * .3, 0, r * .5, r * .3, 0, 0, Math.PI * 2); c.fill(); c.globalAlpha /= .6;
+      c.fillStyle = '#fff';
+      c.beginPath(); c.arc(look.len * r * .72, -look.wid * r * .35, r * .2, 0, 7); c.arc(look.len * r * .72, look.wid * r * .35, r * .2, 0, 7); c.fill();
+      c.fillStyle = '#111';
+      c.beginPath(); c.arc(look.len * r * .78, -look.wid * r * .35, r * .1, 0, 7); c.arc(look.len * r * .78, look.wid * r * .35, r * .1, 0, 7); c.fill();
+      c.restore();
+    };
+  }
+
+  // ---- stage
+  let ids = 1;
+  const mk = (sp, role, x, y, r, extra) => Object.assign({
+    id: ids++, sp, role, x, y, vx: 0, vy: 0, angle: Math.random() * 6, r, alive: true, state: 'idle', stateT: 0,
+    age: 5, phase: 0, hurtT: 0, lastAte: -999, alt: 0, isPlayer: false, rs: {}, pal: null, parts: null,
+  }, extra);
+  const water = scene === 'water-decompose' || q.get('hab') === 'water';
+  const air = scene === 'air-decompose' || q.get('hab') === 'air';
+  const cx = 1300, cy = 1300;
+  const player = mk('spider', 'grazer', cx, cy, 12, {
+    isPlayer: true, angle: 0.3, growth: 0.5, energy: +(q.get('energy') || 80), armor: 1, invulnT: 0, poisonT: 0, hurtT: 0,
+    stats: { armorMax: 2, eatRatio: .92 }, dna: 20,
+  });
+  const entities = [player];
+  const cam = { x: cx, y: cy, zoom: H / (18 * 12), shakeX: 0, shakeY: 0, shake: 0 };
+  A.G = A.G || {};
+  Object.assign(A.G, { mode: 'play', time: 20, cam, player, entities, eco: { flags: {} }, tier: { habitat: water ? 'water' : air ? 'air' : 'land' }, deathInfo: null });
+
+  function addProducers() {
+    const rng = (function (s) { return () => (s = (s * 16807) % 2147483647) / 2147483647; })(7);
+    for (let i = 0; i < 18; i++) {
+      const a = rng() * 6.283, d = 40 + rng() * 300;
+      entities.push(mk(water ? 'waterweed' : 'clover', 'producer', cx + Math.cos(a) * d, cy + Math.sin(a) * d, 7 + rng() * 5, { amount: .8 }));
+    }
+  }
+
+  function drawBackground() {
+    const g = ctx.createRadialGradient(W / 2, H / 2, 50, W / 2, H / 2, W * .7);
+    if (water) { g.addColorStop(0, '#12566E'); g.addColorStop(1, '#06222F'); }
+    else { g.addColorStop(0, '#3C5A2A'); g.addColorStop(1, '#16260F'); }
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    let s = 3;
+    const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+    ctx.globalAlpha = .25;
+    for (let i = 0; i < 700; i++) {
+      ctx.fillStyle = r() < .5 ? (water ? '#9ADBE8' : '#7E9A52') : (water ? '#0A3446' : '#26391A');
+      ctx.fillRect(r() * W, r() * H, 2 + r() * 5, 2 + r() * 3);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawEntities(skipPlayer) {
+    const list = entities.slice().sort((a, b) => (a.role === 'producer' ? -1 : 0) - (b.role === 'producer' ? -1 : 0));
+    A.applyCam(ctx, cam);
+    for (const e of list) {
+      if (skipPlayer && e.isPlayer) continue;
+      if (e.role === 'producer') drawPlant(e);
+      else A.drawCreature(ctx, e, 2);
+    }
+    A.applyCam(ctx, cam);
+    for (const e of list) {
+      if (skipPlayer && e.isPlayer) continue;
+      ctx.save(); ctx.translate(e.x, e.y);
+      A.FX.drawOverlay(ctx, e, A.G.time);
+      ctx.restore();
+    }
+  }
+
+  function drawPlant(e) {
+    ctx.save(); ctx.translate(e.x, e.y);
+    const g = ctx.createRadialGradient(0, -e.r * .2, 1, 0, 0, e.r * 1.3);
+    g.addColorStop(0, water ? '#7FE0A0' : '#A8E070'); g.addColorStop(1, water ? '#1F7A5A' : '#2F7A32');
+    ctx.fillStyle = g;
+    for (let i = 0; i < 5; i++) { ctx.rotate(1.256); ctx.beginPath(); ctx.ellipse(e.r * .5, 0, e.r * .7, e.r * .3, 0, 0, 7); ctx.fill(); }
+    ctx.restore();
+  }
+
+  function step(sec) { for (let i = 0; i < Math.round(sec * 60); i++) A.FX.update(1 / 60); }
+
+  function frame(t) {
+    A.G.time = t;
+    ctx.setTransform(D, 0, 0, D, 0, 0);
+    drawBackground();
+    drawScene(t);
+  }
+
+  function drawScene(t) {
+    if (/decompose$/.test(scene)) {
+      A.G.mode = 'dying';
+      player.alive = false;
+      const di = A.G.deathInfo;
+      drawEntities(true);
+      ctx.setTransform(D, 0, 0, D, 0, 0);
+      A.FX.drawDecompose(ctx, cam, t, di, P);
+      A.FX.drawScreen(ctx, t);
+      return;
+    }
+    if (scene === 'evolve') {
+      A.G.mode = 'evolving';
+      cam.zoom = H / (18 * 12) * (1 - .55 * Math.min(1, P / .8));
+      drawEntities(false);
+      ctx.setTransform(D, 0, 0, D, 0, 0);
+      A.FX.drawEvolve(ctx, P);
+      return;
+    }
+    drawEntities(false);
+    ctx.setTransform(D, 0, 0, D, 0, 0);
+    A.FX.drawWorld(ctx, cam, t);
+    A.FX.drawScreen(ctx, t);
+  }
+
+  // ---- scene setup
+  A.FX.init();
+  if (/decompose$/.test(scene)) {
+    addProducers();
+    const sp = water ? 'minnow' : air ? 'hawk' : (q.get('sp') || 'frog');
+    A.G.deathInfo = { cause: 'eaten', killerSp: 'heron', x: cx, y: cy, sp, r: 12, pal: null, parts: null, habitat: water ? 'water' : air ? 'air' : 'land' };
+  } else if (scene === 'eat') {
+    const aphid = mk('aphid', 'grazer', cx + 40, cy - 10, 5);
+    const mid = mk('beetle', 'grazer', cx - 60, cy + 40, 10);
+    const sick = mk('beetle', 'grazer', cx + 70, cy + 50, 9, { sick: true });
+    const fed = mk('wolfspider', 'hunter', cx - 80, cy - 50, 24, { state: 'windup', stateT: .2, target: player, angle: .4 });
+    const lunger = mk('wolfspider', 'hunter', cx + 90, cy - 55, 22, { state: 'lunge', stateT: .1, angle: 2.6, desperate: true });
+    entities.push(mk('aphid', 'grazer', cx + 20, cy + 70, 5), mk('aphid', 'grazer', cx - 20, cy - 70, 4), mid, sick, fed, lunger);
+    player.invulnT = 0;
+    A.emit('growth', { growth: 0.5 });
+    A.emit('playerEat', { food: aphid, points: 120, dna: 2, combo: 5 });
+    A.emit('playerEat', { food: Object.assign({}, mid, { x: cx - 25, y: cy + 5 }), points: 460, dna: 5, combo: 6 });
+    A.emit('dive', { e: lunger, tx: cx + 30, ty: cy + 20 });
+    A.emit('dash', { e: player });
+    player.vx = 120; player.vy = 10;
+    A.emit('eat', { eater: fed, food: Object.assign({}, aphid, { x: cx - 100, y: cy + 10 }) });
+    A.emit('mishapStart', { type: 'famine' });
+    player.hurtT = 0.1;
+    step(+(q.get('adv') || 0.22));
+    player.vx = 0;
+  } else if (scene === 'hit') {
+    player.invulnT = 1; player.armor = 0; player.poisonT = 3;
+    A.emit('playerHit', { by: null });
+    A.emit('poisoned', {});
+    A.emit('mishapStart', { type: 'disease' });
+    step(+(q.get('adv') || 0.12));
+  } else if (scene === 'threat') {
+    const near = mk('wolfspider', 'hunter', cx + 250, cy - 60, 26, { state: 'windup', stateT: .3, target: player });
+    const far = mk('wolfspider', 'hunter', cx - 420, cy + 150, 30, { target: player });
+    const top = mk('wolfspider', 'hunter', cx + 60, cy - 330, 40, { target: player });
+    const tiny = mk('wolfspider', 'hunter', cx + 100, cy + 360, 8, {});
+    entities.push(near, far, top, tiny);
+    A.emit('mishapStart', { type: 'surge' });
+    step(.7);
+  }
+
+  window.__ready = true;
+  const t0 = 1.234;
+  frame(t0);
+  if (live) { let t = t0; (function loop() { A.FX.update(1 / 60); t += 1 / 60; frame(t); requestAnimationFrame(loop); })(); }
+
+  const bar = document.getElementById('bar');
+  ['eat', 'hit', 'threat', 'decompose&p=.4', 'water-decompose&p=.4', 'air-decompose&p=.4', 'evolve&p=.3'].forEach(s => {
+    const a = document.createElement('a'); a.href = '?live=1&scene=' + s; a.textContent = s.split('&')[0]; bar.appendChild(a);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,252 @@
+<!doctype html>
+<!-- Fake "Apex" page used to test tools/check.mjs without the real game.
+     Implements a stub window.Apex with the Appendix B API (G, TIERS, newRun, restart, choose,
+     closeEditor, togglePause, on/off/emit, debug.*) and a few DOM controls (Play, Dash, cards).
+     URL params: seed, mute, autoplay, editor=1 (route evolve/newRun through the editor mode),
+                 break=1 (deliberately throw errors so the harness error reporting can be tested). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Apex fixture</title>
+<style>
+  :root { --ink:#07110d; --panel:rgba(9,20,16,.78); --text:#EAF5EF; --muted:#9FB5AA; --grow:#C6F25A; --danger:#FF4F64; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:var(--ink); color:var(--text); font:16px system-ui, sans-serif; }
+  canvas { position:fixed; inset:0; width:100%; height:100%; display:block; }
+  .layer { position:fixed; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; gap:16px; padding:16px; text-align:center; }
+  .layer.on { display:flex; }
+  h1 { font-size:40px; margin:0; letter-spacing:.2em; }
+  .btn { background:var(--grow); color:var(--ink); border:0; border-radius:10px; padding:12px 24px; font:700 16px system-ui; box-shadow:0 4px 0 #6f8b2a; cursor:pointer; }
+  .btn.alt { background:var(--panel); color:var(--text); box-shadow:0 4px 0 #000; }
+  .cards { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+  .card { background:var(--panel); border:1px solid rgba(220,255,240,.1); border-radius:14px; padding:16px; min-width:120px; color:var(--text); font:600 16px system-ui; cursor:pointer; }
+  #hud { position:fixed; left:12px; top:12px; right:12px; display:none; justify-content:space-between; font:600 14px system-ui; pointer-events:none; }
+  #hud.on { display:flex; }
+  #bar { position:fixed; left:12px; right:12px; bottom:12px; height:10px; border-radius:6px; background:var(--panel); display:none; }
+  #bar.on { display:block; }
+  #bar i { display:block; height:100%; border-radius:6px; background:var(--grow); width:0; }
+  #dash { position:fixed; right:16px; bottom:40px; width:72px; height:72px; border-radius:36px; display:none; }
+  #dash.on { display:block; }
+  #pausebtn { position:fixed; right:16px; top:48px; display:none; padding:8px 12px; }
+  #pausebtn.on { display:block; }
+</style>
+<!-- Optional module that does not exist: the harness must report this as a warning, not an error. -->
+<script src="missing-optional.js"></script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"><span id="hudL"></span><span id="hudR"></span></div>
+<div id="bar"><i id="barFill"></i></div>
+<button id="dash" class="btn" aria-label="Dash">Dash</button>
+<button id="pausebtn" class="btn alt" aria-label="Pause">Pause</button>
+
+<div id="L-title" class="layer"><h1>APEX</h1><button id="play" class="btn">Play</button><button class="btn alt">How to play</button></div>
+<div id="L-editor" class="layer"><h2>Creature editor</h2><button id="hatch" class="btn">Hatch</button></div>
+<div id="L-intro" class="layer" style="pointer-events:none"><h2 id="introText"></h2></div>
+<div id="L-choice" class="layer"><h2 id="choiceTitle"></h2><div class="cards" id="cards"></div></div>
+<div id="L-dying" class="layer" style="pointer-events:none"><h2>The decomposers move in...</h2><p>Press any key</p></div>
+<div id="L-victory" class="layer"><h1>VICTORY</h1><button class="btn" id="again">Play again</button></div>
+<div id="L-paused" class="layer"><h2>Paused</h2></div>
+
+<script>
+(function () {
+  'use strict';
+  const A = window.Apex = window.Apex || {};
+  const params = new URLSearchParams(location.search);
+  const BREAK = params.get('break') === '1';
+  const EDITOR = params.get('editor') === '1';
+
+  // ---- config ----
+  A.TIER_START = 't1_litter';
+  A.TIERS = {
+    t1_litter: { id: 't1_litter', depth: 1, path: 'shared', name: 'Leaf Litter', players: ['ant', 'pillbug'], next: ['t2_under'], prev: null, final: false },
+    t2_under:  { id: 't2_under',  depth: 2, path: 'shared', name: 'Undergrowth', players: ['spider', 'beetle'], next: ['t3_pond'], prev: 't1_litter', final: false },
+    t3_pond:   { id: 't3_pond',   depth: 3, path: 'shared', name: 'Pond Edge', players: ['frog', 'skink'], next: [], prev: 't2_under', final: true },
+  };
+
+  // ---- event bus ----
+  const handlers = {};
+  A.on = (n, f) => { (handlers[n] = handlers[n] || []).push(f); };
+  A.off = (n, f) => { handlers[n] = (handlers[n] || []).filter((h) => h !== f); };
+  A.emit = (n, p) => { (handlers[n] || []).slice().forEach((f) => f(p)); };
+
+  // ---- state ----
+  const G = A.G = {
+    mode: 'title', prevMode: null, path: null, tierId: A.TIER_START, tier: A.TIERS[A.TIER_START],
+    time: 0, tierTime: 0, transT: 0, timeScale: 1, score: 0, deaths: 0, entities: [],
+    player: { sp: 'ant', growth: 0, energy: 100, r: 12 },
+    eco: { harmony: 70, mishaps: [], flags: {} }, final: false, finalHold: 0, choices: [],
+    flags: { autoplay: params.get('autoplay') === '1', speed: +params.get('speed') || 1, seed: +params.get('seed') || 0, mute: params.get('mute') === '1', debug: true },
+    stats: { eaten: 0 }, deathInfo: null,
+  };
+
+  function setMode(m) {
+    if (G.mode === m) return;
+    const from = G.mode;
+    G.mode = m; G.transT = 0;
+    A.emit('modeChange', { from, to: m });
+    syncUI();
+  }
+  A.setMode = setMode;
+
+  function startTier(id, sp, o) {
+    G.tierId = id; G.tier = A.TIERS[id]; G.tierTime = 0; G.path = G.tier.path;
+    G.player.sp = sp || G.tier.players[0]; G.player.growth = (o && o.growth) || 0; G.final = false; G.finalHold = 0;
+    G.eco.mishaps = []; G.eco.flags = {};
+    A.emit('tierStart', { tierId: id, sp: G.player.sp });
+  }
+  A.startTier = startTier;
+  A.lowerTier = (id) => A.TIERS[id].prev || id;
+  A.nextChoices = (id) => A.TIERS[id].next.flatMap((t) => A.TIERS[t].players.map((sp) => ({ sp, tierId: t, path: A.TIERS[t].path })));
+
+  A.newRun = function () {
+    G.time = 0; G.deaths = 0; G.score = 0;
+    startTier(A.TIER_START, null, {});
+    A.emit('runStart');
+    if (EDITOR) setMode('editor'); else setMode('intro');
+  };
+  A.restart = function () {
+    A.emit('restart');
+    G.time = 0; G.deaths = 0;
+    startTier(A.TIER_START, null, {});
+    setMode('intro');
+  };
+  A.openEditor = function () { A.emit('editorOpen'); setMode('editor'); };
+  A.closeEditor = function () { A.emit('editorDone'); if (G.mode === 'editor') setMode('intro'); };
+  A.togglePause = function () {
+    if (G.mode === 'paused') { setMode(G.prevMode || 'play'); return; }
+    if (G.mode === 'play' || G.mode === 'intro') { G.prevMode = G.mode; setMode('paused'); A.emit('pause', { paused: true }); }
+  };
+  A.choose = function (sp) {
+    const c = G.choices.find((x) => x.sp === sp);
+    if (!c) return;
+    if (G.mode === 'evolveChoice') {
+      G.pending = c; A.emit('evolve', { from: G.tierId, to: c.tierId, path: c.path }); setMode('evolving');
+    } else if (G.mode === 'rebirthChoice') {
+      startTier(c.tierId, c.sp, { growth: 0.4 }); A.emit('rebirth', { sp: c.sp, tierId: c.tierId }); setMode('intro');
+    }
+  };
+
+  // ---- debug ----
+  A.debug = {
+    setTier(id, sp) {
+      if (!A.TIERS[id]) throw new Error('unknown tier ' + id);
+      startTier(id, sp, {});
+      if (BREAK && id === 't2_under') setTimeout(() => { notDefinedAnywhere(); }, 300); // uncaught ReferenceError -> pageerror
+      setMode('intro'); G.transT = 0;
+    },
+    killPlayer() {
+      if (G.mode !== 'play' && G.mode !== 'intro') return;
+      G.deaths++; G.deathInfo = { cause: 'eaten', killerSp: 'spider' };
+      A.emit('playerDeath', { cause: 'eaten', killer: 'spider' }); setMode('dying');
+    },
+    fillGrowth() { G.player.growth = 1; checkGrowth(); },
+    forceMishap(type) {
+      if (BREAK && type === 'boom') throw new TypeError('forceMishap exploded (deliberate, break=1)');
+      const m = { type, sp: 'aphid', t: G.time, title: type.toUpperCase(), text: 'fixture ' + type };
+      G.eco.mishaps.push(m); A.emit('mishapStart', m);
+    },
+    win() { A.emit('victory', { path: G.path }); setMode('victory'); },
+    async simulate(maxSec, o) {
+      o = o || {};
+      await new Promise((r) => setTimeout(r, 300));
+      const bot = o.bot || 'balanced', seed = o.seed | 0, path = o.path || 'shared';
+      const j = (seed * 13 + bot.length * 7) % 17;
+      const base = { bot, path, seed, victory: true, time: 255 + j * 4, tierTimes: { t1_litter: 70 + j, t2_under: 85 + j, t3_pond: 100 + j * 2 },
+        deaths: [], mishaps: {}, harmonyAvg: 0 };
+      if (bot === 'balanced') { base.harmonyAvg = 62 + j; if (seed % 2) base.deaths.push({ cause: 'eaten', killer: 'spider', tierId: 't2_under' }); base.mishaps = { boom: 1 }; }
+      if (bot === 'greedy') { base.harmonyAvg = 38 + j; base.deaths.push({ cause: 'starved', tierId: 't2_under' }, { cause: 'eaten', killer: 'frog', tierId: 't3_pond' }); base.mishaps = { famine: 1, barren: 1 }; }
+      if (bot === 'passive') { base.harmonyAvg = 55; base.victory = seed % 2 === 0; base.time = Math.min(maxSec, 400); base.mishaps = { boom: 1, disease: 1 }; }
+      if (BREAK && seed === 1 && bot === 'balanced') throw new Error('simulate exploded (deliberate, break=1)');
+      return base;
+    },
+  };
+
+  function checkGrowth() {
+    if (G.player.growth < 1 || G.mode !== 'play' && G.mode !== 'intro') return;
+    if (G.tier.final) {
+      if (!G.final) { G.final = true; A.emit('finalStart'); }
+    } else {
+      G.choices = A.nextChoices(G.tierId); A.emit('evolveReady', { choices: G.choices }); setMode('evolveChoice');
+    }
+  }
+
+  // ---- main loop ----
+  let last = performance.now();
+  setInterval(function () {
+    const now = performance.now();
+    const dt = Math.min(0.1, (now - last) / 1000) * (G.flags.speed || 1); last = now;
+    G.transT += dt;
+    if (G.mode === 'intro') { G.time += dt; G.tierTime += dt; if (G.transT >= 2.2) setMode('play'); }
+    else if (G.mode === 'play') {
+      G.time += dt; G.tierTime += dt;
+      if (G.flags.autoplay) G.player.growth = Math.min(1, G.player.growth + dt * 0.03);
+      checkGrowth();
+      if (G.final) { G.finalHold += dt; if (G.finalHold >= 45) A.debug.win(); }
+    } else if (G.mode === 'evolving' && G.transT >= 1.6) {
+      startTier(G.pending.tierId, G.pending.sp, {}); setMode(EDITOR ? 'editor' : 'intro');
+    } else if (G.mode === 'dying' && G.transT >= 4.5) { toRebirth(); }
+    draw();
+  }, 16);
+
+  function toRebirth() {
+    G.choices = A.TIERS[A.lowerTier(G.tierId)].players.map((sp) => ({ sp, tierId: A.lowerTier(G.tierId), path: 'shared' }));
+    A.emit('decomposeDone'); setMode('rebirthChoice');
+  }
+
+  // ---- input ----
+  window.addEventListener('keydown', function (e) {
+    if (e.key === 'r' || e.key === 'R') { A.restart(); return; }
+    if (e.key === 'Escape' || e.key === 'p') { A.togglePause(); return; }
+    if (G.mode === 'dying' && G.transT >= 1.5) toRebirth();
+  });
+
+  // ---- DOM ----
+  const $ = (id) => document.getElementById(id);
+  function syncUI() {
+    const m = G.mode;
+    const on = { title: 'L-title', editor: 'L-editor', intro: 'L-intro', evolveChoice: 'L-choice', rebirthChoice: 'L-choice', dying: 'L-dying', victory: 'L-victory', paused: 'L-paused' };
+    document.querySelectorAll('.layer').forEach((el) => el.classList.toggle('on', el.id === on[m]));
+    const playing = m === 'play' || m === 'intro' || m === 'paused';
+    ['hud', 'bar', 'dash', 'pausebtn'].forEach((id) => $(id).classList.toggle('on', playing));
+    $('introText').textContent = G.tier.name + ' - ' + G.player.sp;
+    if (m === 'evolveChoice' || m === 'rebirthChoice') {
+      $('choiceTitle').textContent = m === 'evolveChoice' ? 'Evolve into...' : 'Be reborn as...';
+      $('cards').innerHTML = '';
+      G.choices.forEach((c, i) => {
+        const b = document.createElement('button'); b.className = 'card'; b.textContent = (i + 1) + '. ' + c.sp; b.dataset.sp = c.sp;
+        b.onclick = () => A.choose(c.sp); $('cards').appendChild(b);
+      });
+    }
+  }
+  $('play').addEventListener('click', () => A.newRun());
+  $('hatch').addEventListener('click', () => A.closeEditor());
+  $('again').addEventListener('click', () => A.restart());
+  $('dash').addEventListener('click', () => A.emit('dash', { e: G.player }));
+  $('pausebtn').addEventListener('click', () => A.togglePause());
+
+  const cv = $('c'), ctx = cv.getContext('2d');
+  const dots = Array.from({ length: 40 }, (_, i) => ({ x: (i * 97) % 1000, y: (i * 61) % 700, v: 20 + (i % 7) * 8 }));
+  function draw() {
+    const dpr = window.devicePixelRatio || 1, w = innerWidth, h = innerHeight;
+    if (cv.width !== (w * dpr | 0)) { cv.width = w * dpr; cv.height = h * dpr; }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const hue = { t1_litter: 90, t2_under: 130, t3_pond: 195 }[G.tierId] || 100;
+    const g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'hsl(' + hue + ',45%,16%)'); g.addColorStop(1, 'hsl(' + hue + ',50%,8%)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    const t = performance.now() / 1000;
+    ctx.fillStyle = 'rgba(230,255,200,.5)';
+    dots.forEach((d) => { ctx.beginPath(); ctx.arc((d.x + t * d.v) % w, (d.y + Math.sin(t + d.v) * 20 + h) % h, 3 + d.v / 10, 0, 7); ctx.fill(); });
+    ctx.fillStyle = '#C6F25A'; ctx.beginPath(); ctx.arc(w / 2, h / 2, 12 + 20 * G.player.growth, 0, 7); ctx.fill();
+    $('hudL').textContent = G.player.sp + ' / ' + G.tier.name;
+    $('hudR').textContent = 'mode ' + G.mode + '  t ' + G.time.toFixed(1) + 's  deaths ' + G.deaths;
+    $('barFill').style.width = (G.player.growth * 100) + '%';
+  }
+
+  A.boot = function () { syncUI(); draw(); };
+  window.addEventListener('load', A.boot);
+})();
+</script>
+</body>
+</html>

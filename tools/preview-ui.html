@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Apex UI preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,600..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="ui"></div>
+<script>
+// Usage (add &paths=1 to evolve for three path columns): preview-ui.html?screen=title|hud|intro|mishap|evolve|dying|rebirth|pause|victory|final|eco|tutorial|tip[&cfg=0][&touch=1][&h=48][&best=1][&tier=t2_under&sp=spider]
+// Tab (hold) shows the ecosystem view here too. Tutorial text is fake; the real one comes from js/tutorial.js.
+// cfg=0 skips loading ../js/config.js (use it when config.js does not exist yet, to avoid a 404 in the console).
+(function () {
+  const q = new URLSearchParams(location.search);
+  const load = (src) => new Promise((res) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = res;
+    document.head.appendChild(s);
+  });
+  (q.get('cfg') === '0' ? Promise.resolve() : load('../js/config.js')).then(() => load('../js/ui.js')).then(start);
+
+  function start() {
+    const A = window.Apex = window.Apex || {};
+    const screen = q.get('screen') || 'hud';
+
+    // ---- fallback content (only used when config.js is absent) ----
+    const sp = (name, latin, fact, extra) => Object.assign({ name, latin, fact }, extra || {});
+    A.CFG = Object.assign({
+      EAT_RATIO: 0.92, ENERGY_MAX: 100, COMBO_WINDOW: 2.2, HARMONY_BAND: [0.6, 1.45], FINAL_HOLD: 45, FINAL_HARMONY: 55,
+      DECOMPOSE_TIME: 4.5, DECOMPOSE_SKIP: 1.5, INTRO_TIME: 2.2, RESPAWN_GROWTH: 0.4,
+    }, A.CFG || {});
+    A.SPECIES = Object.assign({
+      ant: sp('Ant', 'Formicidae', 'Ants can carry up to fifty times their own body weight.', { playable: true, innate: { limbs: 1 } }),
+      pillbug: sp('Pillbug', 'Armadillidium vulgare', 'Pillbugs are crustaceans, not insects, and breathe through gill-like structures.', { playable: true, innate: { spikes: 1 } }),
+      spider: sp('Wolf Spider', 'Lycosidae', 'Wolf spiders carry their babies on their backs until they are ready to hunt.', { innate: { jaws: 1 } }),
+      beetle: sp('Ground Beetle', 'Carabidae', 'Ground beetles hunt at night and can spray a foul liquid when threatened.', { innate: { spikes: 1 } }),
+      mite: sp('Mite', 'Acari', ''), springtail: sp('Springtail', 'Collembola', ''), aphid: sp('Aphid', 'Aphidoidea', ''),
+      caterpillar: sp('Caterpillar', 'Lepidoptera', ''), centipede: sp('Centipede', 'Chilopoda', ''),
+      seed: sp('Seed', '', ''), fungus: sp('Fungus', '', ''),
+    }, A.SPECIES || {});
+    A.PARTS = Object.assign({
+      limbs: { name: 'Limbs', desc: 'Speed +7% per level.' }, spikes: { name: 'Spikes', desc: 'Absorbs one bite.' }, jaws: { name: 'Jaws', desc: 'Bigger bite.' },
+    }, A.PARTS || {});
+    A.PATHS = Object.assign({
+      shared: { name: 'The Pond Edge', color: '#3BE3C3', blurb: 'Before the paths divide.',
+        ending: 'You stand at the water’s edge, the highest hunter in a world once ruled by giants. Frogs sing, reeds sway, and every creature below you still has room to live.',
+        cascade: 'Because you hunted gently, the insects never boomed, the reeds stayed thick, and the pond stayed clear. A healthy top predator keeps everything beneath it in check.' },
+    }, A.PATHS || {});
+    const ro = (s, role, r, n0) => ({ sp: s, role, beh: 'wander', r, n0 });
+    A.TIERS = Object.assign({
+      t1_litter: { id: 't1_litter', depth: 1, name: 'Leaf Litter', blurb: 'A tiny world of rot and rustle. Everything here is food or hunter.', roster: [
+        ro('seed', 'producer', 2, 16), ro('fungus', 'producer', 3, 14), ro('mite', 'grazer', 3, 22), ro('springtail', 'grazer', 4, 20), ro('aphid', 'grazer', 5, 18),
+        ro('caterpillar', 'grazer', 14, 6), ro('beetle', 'hunter', 20, 3), ro('spider', 'hunter', 24, 2), ro('centipede', 'hunter', 40, 1) ] },
+      t2_under: { id: 't2_under', name: 'Undergrowth', roster: [] },
+    }, A.TIERS || {});
+    const tierId = q.get('tier') || 't1_litter';
+    const tier = A.TIERS[tierId] || A.TIERS.t1_litter;
+    const names = Object.keys(A.SPECIES);
+    const first = (n) => names.filter((k) => tier.roster.some((r) => r.sp === k))[n];
+
+    // ---- tiny event bus + fake core API ----
+    const bus = {};
+    A.on = (n, f) => (bus[n] = bus[n] || []).push(f);
+    A.emit = (n, p) => (bus[n] || []).forEach((f) => f(p));
+    A.input = { dashQueued: false, biteQueued: false, abilityQueued: false, ecoView: false };
+    A.W = innerWidth; A.H = innerHeight;
+    A.worldToScreen = (x, y) => ({ x: (x - 600) * 3 + innerWidth / 2, y: (y - 400) * 3 + innerHeight / 2 });
+    A.Tutorial = { skip() { console.log('[api] Tutorial.skip'); G.tutorial.active = false; } };
+    window.addEventListener('keydown', (e) => { if (e.key === 'Tab') { e.preventDefault(); A.input.ecoView = true; } });
+    window.addEventListener('keyup', (e) => { if (e.key === 'Tab') A.input.ecoView = false; });
+    ['choose', 'newRun', 'restart', 'togglePause', 'setMode'].forEach((k) => { A[k] = (...a) => console.log('[api] ' + k, a.join(',')); });
+    A.drawPortrait = function (ctx, spId, size, o) {
+      o = o || {};
+      let h = 0; for (let i = 0; i < spId.length; i++) h = (h * 31 + spId.charCodeAt(i)) | 0;
+      const body = (o.pal && o.pal.body) || 'hsl(' + (Math.abs(h) % 360) + ',58%,56%)';
+      const c = size / 2, w = 1 + Math.sin((o.t || 0) * 5) * 0.04;
+      ctx.fillStyle = body; ctx.beginPath(); ctx.ellipse(c, c, size * 0.4 * w, size * 0.28, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.beginPath(); ctx.ellipse(c - size * .05, c - size * .1, size * .2, size * .08, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(c + size * .2, c - size * .06, size * .08, 0, 7); ctx.fill();
+      ctx.fillStyle = '#07110d'; ctx.beginPath(); ctx.arc(c + size * .23, c - size * .06, size * .04, 0, 7); ctx.fill();
+    };
+
+    // ---- fake game state ----
+    const animals = tier.roster.filter((r) => r.role !== 'producer');
+    const pops = {}, n0 = {};
+    animals.forEach((r, i) => { n0[r.sp] = r.n0; pops[r.sp] = Math.round(r.n0 * [1.0, 0.45, 1.8, 1.1, 0.8, 1.2, 1, 1, 1][i % 9]); });
+    const playerSp = q.get('sp') || 'ant';
+    const G = A.G = {
+      mode: 'play', prevMode: 'play', path: null, tierId, tier, time: 187, transT: 0, score: 4280, combo: 4, comboT: 1.4, deaths: 1, dna: 23,
+      creature: { name: '', pal: null, parts: {} },
+      player: { sp: playerSp, isPlayer: true, x: 600, y: 400, r: 14, growth: 0.62, energy: 64, dna: 23, hp: 70, maxHp: 100, stats: { eatRatio: 0.92 }, ability: { id: 'formic_spray', cd: 8, cdT: 3, activeT: 0 } },
+      cam: { x: 600, y: 400, zoom: 3, shakeX: 0, shakeY: 0 },
+      tutorial: { active: false, id: null, text: '', anchor: null, highlight: [], canSkip: true },
+      tip: null, zones: [],
+      eco: { pops, n0, harmony: +(q.get('h') || 63), mishaps: [], producerLevel: 0.7 },
+      final: false, finalHold: 0,
+      stats: { eaten: 84, bySp: {}, maxCombo: 9, mishaps: 3, harmonySum: 5400, harmonyN: 100 },
+      choices: [{ sp: 'spider', tierId: 't2_under', path: null }, { sp: 'beetle', tierId: 't2_under', path: null }],
+      deathInfo: { cause: 'eaten', killerSp: 'spider', r: 18, sp: playerSp },
+      lineage: [
+        { sp: 'ant', tierId: 't1_litter', outcome: 'evolved', pal: { body: '#d65a5a' }, parts: {} },
+        { sp: 'spider', tierId: 't2_under', outcome: 'eaten', pal: { body: '#d65a5a' }, parts: {} },
+        { sp: 'pillbug', tierId: 't1_litter', outcome: 'evolved', pal: { body: '#d65a5a' }, parts: {} },
+        { sp: 'beetle', tierId: 't2_under', outcome: 'starved', pal: { body: '#d65a5a' }, parts: {} },
+      ],
+      flags: {}, timeScale: 1,
+    };
+
+    // ---- noisy backdrop to check legibility ----
+    const cv = document.getElementById('game'), ctx = cv.getContext('2d');
+    function paint() {
+      cv.width = innerWidth; cv.height = innerHeight;
+      const g = ctx.createLinearGradient(0, 0, innerWidth, innerHeight);
+      g.addColorStop(0, '#24351f'); g.addColorStop(.5, '#3d5a2a'); g.addColorStop(1, '#1b2b1c');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height);
+      let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+      for (let i = 0; i < 70; i++) {
+        const x = rnd() * cv.width, y = rnd() * cv.height, r = 30 + rnd() * 120;
+        const rg = ctx.createRadialGradient(x, y, 0, x, y, r);
+        const bright = rnd() < 0.3;
+        rg.addColorStop(0, bright ? 'rgba(235,245,180,.55)' : 'rgba(10,25,12,.5)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = rg; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      for (let i = 0; i < 1400; i++) { ctx.fillStyle = 'rgba(' + (rnd() < .5 ? '255,255,230' : '0,0,0') + ',' + (rnd() * .25) + ')'; ctx.fillRect(rnd() * cv.width, rnd() * cv.height, 2 + rnd() * 4, 2 + rnd() * 4); }
+    }
+    paint();
+
+    // ---- screen setup ----
+    const set = (mode, extra) => { Object.assign(G, extra || {}); G.mode = mode; };
+    const mishaps = () => {
+      const t = tier.mishaps || {};
+      const m = (type, title, text) => A.emit('mishapStart', { type, title: (t[type] && t[type].title) || title, text: (t[type] && t[type].text) || text, sp: 'aphid' });
+      m('famine', 'Famine in the Litter', 'Too few grazers. Hunters are desperate and will hunt you.');
+      m('boom', 'Aphid Plague', 'Aphids are swarming. The clover is being stripped.');
+    };
+    const setups = {
+      title: () => set('title'),
+      hud: () => set('play'),
+      intro: () => { set('intro', { transT: 1 }); A.emit('tierStart', { tierId }); },
+      mishap: () => { set('play'); mishaps(); },
+      evolve: () => set('evolveChoice', q.get('paths') ? { choices: ['weasel', 'snake', 'kingfisher', 'swallow', 'pike', 'otter'].map((sp, i) => ({ sp, tierId: 't4_x', path: ['land', 'sky', 'sea'][i >> 1] })) } : {}),
+      dying: () => set('dying', { transT: 3.4 }),
+      rebirth: () => set('rebirthChoice', { choices: [{ sp: 'ant', tierId: 't1_litter' }, { sp: 'pillbug', tierId: 't1_litter' }] }),
+      pause: () => set('paused', { prevMode: 'play' }),
+      victory: () => set('victory'),
+      final: () => { set('play', { final: true, finalHold: 28, player: Object.assign(G.player, { growth: 1, r: 20.4 }) }); mishaps(); },
+      eco: () => { set('play'); A.input.ecoView = true; },
+      tutorial: () => { set('play', { tutorial: { active: true, id: 'eat', text: 'Glowing outline = food. Run into the small bugs to eat them.', anchor: { x: 600, y: 380 }, highlight: [], canSkip: true } }); },
+      tip: () => { set('play', { tip: { id: 'mishap', text: 'The food web slipped out of balance. Hold Tab to see which species is off.', t: 8 } }); },
+    };
+    if (q.get('best') === '1') localStorage.setItem('apex.best', JSON.stringify({ shared: { time: 612.3, score: 48210, deaths: 2, harmony: 61 } }));
+    const touch = q.get('touch') === '1';
+    A.UI.init();
+    if (touch) document.getElementById('ui').classList.add('is-touch');
+    (setups[screen] || setups.hud)();
+    A.emit('modeChange', { from: 'title', to: G.mode });
+    window.addEventListener('resize', paint);
+
+    let last = performance.now();
+    (function frame(t) {
+      const dt = Math.min(0.05, (t - last) / 1000); last = t;
+      A.UI.update(G, dt);
+      requestAnimationFrame(frame);
+    })(last);
+  }
+})();
+</script>
+</body>
+</html>

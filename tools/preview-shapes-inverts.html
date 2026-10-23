@@ -1,0 +1,162 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>shapes-inverts preview</title>
+<style>
+  html, body { margin: 0; background: #1b130d; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="../js/shapes-inverts.js"></script>
+<script>
+(function () {
+  'use strict';
+  const A = window.Apex;
+  const Q = new URLSearchParams(location.search);
+  const W = innerWidth, H = innerHeight;
+  const cv = document.getElementById('c');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  const freeze = Q.has('freeze') ? parseFloat(Q.get('freeze')) : null;
+
+  const ORDER = ['ant', 'beetle', 'aphid', 'fly', 'cricket', 'grasshopper', 'dragonfly', 'springtail', 'spider', 'mite',
+    'pillbug', 'centipede', 'caterpillar', 'worm', 'seed', 'fungus', 'clover', 'reeds', 'lilypad', 'carrion'];
+  let nextId = 1;
+  function mk(sp, x, y, r, extra) {
+    return Object.assign({ id: nextId++, sp, x, y, vx: 0, vy: 0, angle: 0, r, phase: 0, state: '', stateT: 0, biteT: 0,
+      hurtT: 0, target: null, desperate: false, amount: 1, pal: null, rs: {}, alive: true }, extra || {});
+  }
+
+  // Tiny stand-in for core's drawCreature: soft shadow from len/wid, rotate, call the plan.
+  function drawCreature(c, e, t) {
+    const look = A.LOOKS[e.sp], plan = A.Shapes[look.plan];
+    if (!look.noShadow) {
+      c.save();
+      c.translate(e.x + e.r * 0.12, e.y + e.r * 0.22);
+      c.rotate(e.angle);
+      c.fillStyle = 'rgba(0,0,0,0.22)';
+      c.beginPath(); c.ellipse(0, 0, look.len * e.r, look.wid * e.r, 0, 0, Math.PI * 2); c.fill();
+      c.restore();
+    }
+    if (plan.worldSpace) { plan(c, e, t, look); return; }
+    c.save(); c.translate(e.x, e.y); c.rotate(e.angle); plan(c, e, t, look); c.restore();
+  }
+
+  function label(text, x, y, align) {
+    ctx.fillStyle = 'rgba(240,232,214,0.75)';
+    ctx.font = '11px sans-serif'; ctx.textAlign = align || 'center';
+    ctx.fillText(text, x, y);
+  }
+
+  // ?bench=1: time 230 creatures per frame and log the average draw cost.
+  if (Q.has('bench')) {
+    const crowd = [];
+    for (let i = 0; i < 230; i++) crowd.push(mk(ORDER[i % ORDER.length], 40 + (i * 97) % (W - 80), 40 + (i * 53) % (H - 80), 10 + (i % 5) * 2));
+    const t0 = performance.now();
+    for (let f = 0; f < 120; f++) {
+      ctx.fillStyle = '#2b1d12'; ctx.fillRect(0, 0, W, H);
+      crowd.forEach((e) => { e.phase += 0.3; e.angle = f * 0.02 + e.id; e.vx = 40; drawCreature(ctx, e, f / 60); });
+    }
+    console.log('bench ms/frame (230 creatures): ' + ((performance.now() - t0) / 120).toFixed(2));
+  }
+
+  // ---- scene setup
+  const only = Q.get('only') ? Q.get('only').split(',') : null;
+  const GRID_H = 118, GRID_TOP = 10, SMALL_Y = 522, STATE_Y = 580, MOVE_Y = 700;
+  const grid = [], small = [], states = [], movers = [];
+  const isSeg = (sp) => A.LOOKS[sp].plan === 'segmented';
+  if (only) {
+    const bigR = parseFloat(Q.get('r') || '90');
+    const cols = Math.min(only.length, Math.max(1, Math.floor(W / (bigR * 5))));
+    const cw = W / cols, rows = Math.ceil(only.length / cols), ch = H / rows;
+    only.forEach((sp, i) => {
+      const cx = (i % cols) * cw + cw * 0.5 + (isSeg(sp) ? A.LOOKS[sp].len * bigR * 0.6 : 0);
+      grid.push(mk(sp, cx, Math.floor(i / cols) * ch + ch * 0.5, bigR, { angle: parseFloat(Q.get('ang') || '0') }));
+    });
+  } else {
+    const cols = 5, cw = W / cols;
+    ORDER.forEach((sp, i) => {
+      const cx = (i % cols) * cw + cw * 0.5 + (isSeg(sp) ? 50 : 0), cy = GRID_TOP + Math.floor(i / cols) * GRID_H + GRID_H * 0.5;
+      grid.push(mk(sp, cx, cy, 38));
+    });
+    ORDER.forEach((sp, i) => small.push(mk(sp, 50 + i * ((W - 100) / (ORDER.length - 1)), SMALL_Y, 8 + (i % 4) * 2)));
+    const defs = [
+      ['idle', 'beetle', {}], ['windup', 'spider', { state: 'windup', stateT: 0.3 }], ['lunge', 'beetle', { state: 'lunge' }],
+      ['bite', 'spider', { biteT: 0.125 }], ['hurt', 'ant', { hurtT: 0.15 }], ['desperate', 'spider', { desperate: true }],
+      ['rest', 'beetle', { state: 'rest' }], ['hop', 'grasshopper', { state: 'hop', stateT: 0.25 }],
+      ['eyes follow', 'ant', { target: { x: 99999, y: 0 } }],
+    ];
+    const cw2 = W / defs.length;
+    defs.forEach(([name, sp, o], i) => {
+      states.push(mk(sp, cw2 * i + cw2 * 0.5, STATE_Y + 44, 24, Object.assign({ _lab: name }, o)));
+    });
+    ['centipede', 'caterpillar', 'worm', 'caterpillar', 'worm'].forEach((sp, i) => {
+      movers.push(mk(sp, 300, MOVE_Y + 22 + i * 36, sp === 'centipede' ? 15 : 13, { _lane: i }));
+    });
+  }
+
+  let last = performance.now(), T = 0;
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    T += dt;
+    const t = freeze !== null ? freeze : T;
+    ctx.fillStyle = '#2b1d12'; ctx.fillRect(0, 0, W, H);
+    for (let i = 0; i < 90; i++) { // dappled dark earth backdrop
+      ctx.fillStyle = i % 3 ? 'rgba(60,40,24,0.35)' : 'rgba(20,12,6,0.35)';
+      ctx.beginPath(); ctx.arc((i * 193) % W, (i * 71) % H, 6 + (i * 13) % 34, 0, 7); ctx.fill();
+    }
+
+    grid.forEach((e) => {
+      const look = A.LOOKS[e.sp];
+      e.phase = t * 2.2;
+      if (look.plan === 'segmented') { // walk a small loop so the trail curves
+        const a = t * 0.9;
+        if (e._ox === undefined) { e._ox = e.x; e._oy = e.y; }
+        e.angle = a + Math.PI / 2;
+        e.vx = Math.cos(e.angle) * 60; e.vy = Math.sin(e.angle) * 60;
+        e.x = e._ox + Math.cos(a) * (only ? e.r * 1.4 : 24); e.y = e._oy + Math.sin(a) * (only ? e.r * 0.9 : 14);
+      } else if (look.plan !== 'plant') { e.vx = 40; e.vy = 0; }
+      if (look.plan === 'plant') e.amount = 0.55 + 0.45 * Math.sin(t * 0.7 + e.id) ** 2;
+      drawCreature(ctx, e, t);
+      label(e.sp, e._ox !== undefined ? e._ox - (only ? 0 : 50) : e.x, (e._oy !== undefined ? e._oy : e.y) + (only ? e.r * 1.9 : 54));
+    });
+    if (only) { requestAnimationFrame(frame); return; }
+
+    label('gameplay size (r 8-14)', 14, SMALL_Y - 26, 'left');
+    small.forEach((e) => {
+      e.angle = Math.sin(t * 0.6 + e.id) * 0.4; e.phase = t * 3 + e.id; e.vx = 50;
+      if (isSeg(e.sp)) { e.x0 = e.x0 || e.x; e.x = e.x0 + 24; e.angle = 0; }
+      drawCreature(ctx, e, t);
+    });
+
+    label('animation states', 14, STATE_Y - 4, 'left');
+    states.forEach((e) => {
+      e.phase = t * 2.4; e.vx = 40;
+      if (e.state === 'hop') e.stateT = (t * 1.4) % 0.5;
+      if (e.biteT > 0) e.biteT = 0.25 * ((t * 1.3) % 1);
+      if (e.hurtT > 0) e.hurtT = 0.1 + 0.05 * Math.sin(t * 8);
+      drawCreature(ctx, e, t);
+      if (e._lab) label(e._lab, e.x, STATE_Y + 92);
+    });
+
+    label('segmented, moving (trails, lateral wave, turning)', 14, MOVE_Y, 'left');
+    movers.forEach((e, i) => {
+      const sp = 60 + i * 12, u = (t * 0.22 + i * 0.31) % 2;
+      const dir = u < 1 ? 1 : -1, prog = u < 1 ? u : 2 - u;
+      e.vx = dir * sp; e.vy = Math.cos(t * 2 + i) * 14;
+      e.x = 300 + prog * (W - 380);
+      e.y = MOVE_Y + 22 + i * 36 + Math.sin(t * 1.5 + i) * 7;
+      e.angle = Math.atan2(e.vy, e.vx);
+      e.phase += Math.hypot(e.vx, e.vy) * dt / e.r;
+      drawCreature(ctx, e, t);
+    });
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
