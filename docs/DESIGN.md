@@ -376,3 +376,8 @@ At t3_pond, harmony crashes and predators stop being a threat. Hunters probably 
 - Test in Playwright Chromium + Firefox at DPR 1, 1.25 and 1.5.
 - Use `pointer` events with `pointerType`; `contextmenu` prevented on the canvas (right-click = dash); no Mac-only key names; avoid `backdrop-filter` jank (fallback solid film on Firefox when slow).
 - Fonts load with a system fallback stack (`"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif`).
+
+---
+
+# Working rule (from user, binding)
+No more mass subagent fan-outs. Do the work in the main session by default. Spawn at most one subagent at a time, only when clearly needed, and say why before spawning. No Workflow runs.
