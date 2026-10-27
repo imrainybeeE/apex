@@ -228,6 +228,7 @@ kbd {
 .bead-cell.dim .bead { opacity: .72; }
 .bead-cell.edible .bead { box-shadow: 0 0 0 2px var(--leaf), 0 0 12px rgba(143, 209, 79, .65); }
 .bead-cell.danger .bead { box-shadow: 0 0 0 2px var(--venom), 0 0 12px rgba(255, 90, 95, .6); }
+.bead-cell.sil .bead { box-shadow: none; background: rgba(27, 22, 18, .45); } /* the tint carries the zone */
 .tick { display: block; width: 2px; height: 9px; margin-top: 2px; background: var(--ring); border-radius: 1px; }
 .rb-thread { position: relative; height: 7px; border-radius: 4px; background: rgba(239, 232, 218, .16); }
 .seg { position: absolute; top: 0; bottom: 0; left: 0; width: 0; display: block; }

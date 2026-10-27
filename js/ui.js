@@ -126,6 +126,12 @@
       if (A.drawPortrait) A.drawPortrait(ctx, it.sp, it.size, Object.assign({ t }, o));
       else blob(ctx, it.sp, it.size);
     } catch (e) { blob(ctx, it.sp, it.size); }
+    if (it.tint) { // flat silhouette in one colour
+      ctx.globalCompositeOperation = 'source-in';
+      ctx.fillStyle = it.tint;
+      ctx.fillRect(0, 0, it.size, it.size);
+      ctx.globalCompositeOperation = 'source-over';
+    }
   }
   /** Create a portrait canvas of logical `size` px; CSS decides the displayed size. */
   function portrait(sp, size, scope, opts, cls) {
@@ -133,7 +139,8 @@
     const cv = el('canvas', 'portrait ' + (cls || ''));
     cv.width = cv.height = Math.round(size * dpr);
     cv.setAttribute('aria-hidden', 'true');
-    const it = { cv, ctx: cv.getContext && cv.getContext('2d'), sp, size, dpr, opts: opts || {}, scope };
+    const it = { cv, ctx: cv.getContext && cv.getContext('2d'), sp, size, dpr, opts: opts || {}, scope, tint: null };
+    cv._it = it;
     live.push(it);
     drawPortrait(it, now() / 1000);
     return cv;
@@ -722,12 +729,13 @@
     S.chain = list.map((ro) => {
       const cell = el('div', 'bead-cell', '', R.beads);
       const n = el('div', 'bead dim', '', cell);
-      n.appendChild(portrait(ro.sp, 40, 'chain', {}, 'p-bead'));
+      const cv = n.appendChild(portrait(ro.sp, 40, 'chain', {}, 'p-bead'));
       el('i', 'tick', '', cell);
-      return { n, cell, ro, st: '' };
+      return { n, cell, ro, it: cv._it, st: '' };
     });
     layoutRibbon();
   }
+  const SIL_TINT = { edible: '#8FD14F', danger: '#FF5A5F', dim: 'rgba(239, 232, 218, .55)' };
   const BEAD_NOTE = {
     edible: 'food, you can eat it', fight: 'bite it down, then eat what it leaves',
     danger: 'danger, it can eat you', dim: 'much bigger than you',
@@ -767,12 +775,21 @@
     if (idKey !== S.identKey) { S.identKey = idKey; renderYou(); }
     if (G.tierId !== S.chainKey) buildChain();
     let foods = 0, dangers = 0;
-    S.chain.forEach((c) => {
-      const st = statusOf(c.ro, p);
+    // Silhouettes tinted by zone; only the ones nearest your size keep their real colours:
+    // the biggest thing you can eat, anything you can fight, and the next thing up.
+    const sts = S.chain.map((c) => statusOf(c.ro, p));
+    const near = sts.lastIndexOf('edible');
+    let next = near + 1;
+    while (next < sts.length && sts[next] === 'fight') next++;
+    S.chain.forEach((c, i) => {
+      const st = sts[i];
       if (st === 'edible') foods++; else if (st === 'danger') dangers++;
-      if (c.st !== st) {
-        c.st = st;
-        c.cell.className = 'bead-cell ' + st;
+      const full = st === 'fight' || i === near || i === next;
+      if (c.it) c.it.tint = full ? null : SIL_TINT[st];
+      const key = st + (full ? '' : ' sil');
+      if (c.st !== key) {
+        c.st = key;
+        c.cell.className = 'bead-cell ' + key;
         c.n.className = 'bead ' + st;
         c.n.title = spName(c.ro.sp) + ': ' + BEAD_NOTE[st];
       }
