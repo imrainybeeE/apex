@@ -905,7 +905,10 @@
       flag(R.tip, 'pop', false); void R.tip.offsetWidth; flag(R.tip, 'pop', true);
       R.tip._sz = null;
     }
-    const tipOn = !!(tip && tip.text && now() < S.tipUntil && !tutOn && mode !== 'paused' && mode !== 'dying' && mode !== 'title' && mode !== 'victory');
+    // A tip waits while a mishap banner is up (its countdown pauses), so they never stack.
+    const bannerUp = !!S.banners.cur;
+    if (bannerUp && now() < S.tipUntil) S.tipUntil += dt * 1000;
+    const tipOn = !!(tip && tip.text && now() < S.tipUntil && !tutOn && !bannerUp && mode !== 'paused' && mode !== 'dying' && mode !== 'title' && mode !== 'victory');
     flag(R.tip, 'on', tipOn);
     flag(R.tip, 'docked', mode !== 'play' && mode !== 'intro');
     if (tipOn && (mode === 'play' || mode === 'intro')) placeBubble(R.tip, dt);
