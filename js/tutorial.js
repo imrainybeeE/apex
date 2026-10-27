@@ -83,10 +83,10 @@
     },
     grow: {
       text: () => 'Every meal fills your growth ring. Keep eating to grow.',
-      enter(G) { T.g0 = G.player.growth; T.props = spawnProps(G, 'aphid', 3, 60, 110, 20); G.tutorial.highlight = liveIds(T.props); },
+      enter(G) { T.e0 = T.eats; T.props = spawnProps(G, 'aphid', 3, 60, 110, 20); G.tutorial.highlight = liveIds(T.props); },
       check(G) {
-        const left = T.g0 + 0.04 - G.player.growth;
-        if (left > 0 && liveIds(T.props).length < Math.ceil(left / 0.028)) T.props = T.props.concat(spawnProps(G, 'aphid', 1, 60, 110, 20));
+        const left = 3 - (T.eats - T.e0);   // three meals, whatever the tier's growthNeeded
+        if (left > 0 && liveIds(T.props).length < left) T.props = T.props.concat(spawnProps(G, 'aphid', 1, 60, 110, 20));
         G.tutorial.highlight = liveIds(T.props);
         return left <= 0;
       },

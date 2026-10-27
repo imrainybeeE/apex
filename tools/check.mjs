@@ -939,13 +939,15 @@ function printSimTable(results) {
   });
 }
 
-// Targets from docs/DESIGN.md "Verification". M1 'shared' is 3 tiers (half a 6-tier run), so its default time window is halved.
+// Targets from docs/DESIGN.md "M1.5 Pacing": each tier 110-170s to full growth, the 3-tier 'shared' slice 6-8 min,
+// a full 6-tier path about 15 min, 1-4 balanced deaths across the seeds.
+const TIER_MIN = 110, TIER_MAX = 170;
 function evaluateTargets(results, opts) {
   const out = [];
   const good = results.filter((r) => r.norm && r.ok);
   const paths = [...new Set(results.map((r) => r.path))];
   for (const p of paths) {
-    const defMin = p === 'shared' ? 4 : 8, defMax = p === 'shared' ? 6 : 12;
+    const defMin = p === 'shared' ? 6 : 12, defMax = p === 'shared' ? 8 : 18;
     const tMin = opts['target-min'] != null ? +opts['target-min'] : defMin;
     const tMax = opts['target-max'] != null ? +opts['target-max'] : defMax;
     const byBot = (b) => good.filter((r) => r.path === p && r.bot === b);
@@ -966,9 +968,9 @@ function evaluateTargets(results, opts) {
     verdict('balanced deaths 0-3 per run', bal, (r) => r.norm.deaths.length <= 3, (r) => `${r.norm.deaths.length} deaths`, 'balanced bot not run');
     if (bal.length >= 2) {
       const total = bal.reduce((n, r) => n + r.norm.deaths.length, 0);
-      add('balanced dies at least once across the seeds', total >= 1 ? 'PASS' : 'FAIL', `${total} death(s) in ${bal.length} run(s)`);
+      add('balanced dies 1-4 times across the seeds', total >= 1 && total <= 4 ? 'PASS' : 'FAIL', `${total} death(s) in ${bal.length} run(s)`);
     }
-    verdict('balanced every tier >= 55s to full growth', bal.filter((r) => Object.keys(r.norm.clearTimes).length), (r) => Object.values(r.norm.clearTimes).every((t) => t >= 55),
+    verdict(`balanced every tier ${TIER_MIN}-${TIER_MAX}s to full growth`, bal.filter((r) => Object.keys(r.norm.clearTimes).length), (r) => Object.values(r.norm.clearTimes).every((t) => t >= TIER_MIN && t <= TIER_MAX),
       (r) => Object.entries(r.norm.clearTimes).map(([k, t]) => `${k.split('_')[0]} ${t.toFixed(0)}s`).join(' '), 'balanced bot not run (or no clearTimes in report)');
     verdict('balanced harmony >= 55', bal.filter((r) => r.norm.harmony !== undefined), (r) => r.norm.harmony >= 55, (r) => `harmony ${r.norm.harmony?.toFixed(0)}`, 'balanced bot not run');
     if (bal.length) {
