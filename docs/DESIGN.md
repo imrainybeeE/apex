@@ -380,4 +380,4 @@ At t3_pond, harmony crashes and predators stop being a threat. Hunters probably 
 ---
 
 # Working rule (from user, binding)
-No more mass subagent fan-outs. Do the work in the main session by default. Spawn at most one subagent at a time, only when clearly needed, and say why before spawning. No Workflow runs.
+No subagent swarms and no Workflow runs. Spawning a single subagent when it genuinely helps is fine, no need to announce it.
