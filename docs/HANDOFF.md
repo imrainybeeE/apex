@@ -10,6 +10,7 @@ Read this file first, then `docs/DESIGN.md`. DESIGN.md is the full spec: Appendi
 
 ## 1. How the user wants you to work
 
+- **Run these skills first.** Before any game work session: `principle-experience-first` and `principle-sequence-verifiable-units`. Before any UI work: also `frontend-design:frontend-design` and `exhaust-the-design-space`. All are installed in ~/.claude/skills or as plugins.
 - **No subagent swarms and no Workflow runs.** You may spawn a subagent when it genuinely helps, without announcing it. Never fan out many at once.
   - History: the M1 build used 9–15 parallel agents. The user called it "infinite subagent hell", hit session limits, and lost trust.
 - **Ask before visual or game-design decisions.** Even when the user says "full send", ask 2–4 short questions with the question tool, offering concrete options. The user corrected this explicitly.
@@ -133,7 +134,7 @@ Each step ends with smoke passing and a commit.
 
 ## 6. Pstack skills that fit the UI overhaul
 
-The user asked which skills from `cursor/plugins` pstack suit this work style. Three are already installed in this environment as skills: `redesign-from-first-principles`, `exhaust-the-design-space`, `prototype`.
+The user asked which skills from `cursor/plugins` pstack suit this work style. Installed now: `principle-experience-first` and `principle-sequence-verifiable-units` (added 2026-10-27), plus the earlier `redesign-from-first-principles`, `exhaust-the-design-space`, `prototype`.
 
 **Use these:**
 

@@ -381,3 +381,7 @@ At t3_pond, harmony crashes and predators stop being a threat. Hunters probably 
 
 # Working rule (from user, binding)
 No subagent swarms and no Workflow runs. Spawning a single subagent when it genuinely helps is fine, no need to announce it.
+
+## Skills to run first (from user, binding)
+- **Before any game work session**: run the `principle-experience-first` and `principle-sequence-verifiable-units` skills (installed in ~/.claude/skills).
+- **Before any UI work**: also run `frontend-design:frontend-design` and `exhaust-the-design-space`.
