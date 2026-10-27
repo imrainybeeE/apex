@@ -1524,15 +1524,24 @@
     for (let i = 0; i < n; i++) drawArrow(ctx, arrowList[i], t, W, H);
   }
 
-  // Screen-edge position for a direction from the view centre, kept clear of the ribbon (top) and dial (bottom).
+  // Screen-edge position for a direction from the view centre, pulled in along the same line until it clears the
+  // HUD boxes ui.js reports (ribbon, score, dial, pause and touch buttons, banners).
   function edgePoint(dx, dy, W, H, out) {
     const cx = W / 2, cy = H / 2;
     const len = Math.hypot(dx, dy) || 1;
     const ux = dx / len, uy = dy / len;
-    const mx = 30, top = 104, bottom = 96;
-    const halfW = cx - mx, halfH = uy < 0 ? cy - top : cy - bottom;
-    const k = Math.min(halfW / Math.max(Math.abs(ux), 1e-4), halfH / Math.max(Math.abs(uy), 1e-4));
+    const m = 34;
+    let k = Math.min((cx - m) / Math.max(Math.abs(ux), 1e-4), (cy - m) / Math.max(Math.abs(uy), 1e-4));
+    const rects = (A.UI && A.UI.hudRects && A.UI.hudRects()) || [];
+    for (let i = 0; i < 24 && k > 60 && hitsRects(cx + ux * k, cy + uy * k, 28, rects); i++) k -= 14;
     out.x = cx + ux * k; out.y = cy + uy * k; out.ux = ux; out.uy = uy;
+  }
+  function hitsRects(x, y, rad, rects) {
+    for (let i = 0; i < rects.length; i++) {
+      const q = rects[i];
+      if (x + rad > q.l && x - rad < q.r && y + rad > q.t && y - rad < q.b) return true;
+    }
+    return false;
   }
   const edgeOut = { x: 0, y: 0, ux: 1, uy: 0 };
 

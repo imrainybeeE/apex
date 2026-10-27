@@ -1224,6 +1224,7 @@
       tickHud(); tickBanners();
       const ub = R.under.firstChild && (R.final.classList.contains('on') || R.banners.firstChild) ? R.under.getBoundingClientRect().bottom : 0;
       S.underBottom = ub;
+      S.hudRects = hudRects();
     }
     if (m === 'intro') ensureIntro();
     else if (m === 'dying') tickDying();
@@ -1233,5 +1234,15 @@
     else if (m === 'victory' && !S.victoryBuilt) buildVictory();
   }
 
-  A.UI = { init, update };
+  // Screen boxes of the visible HUD pieces, so fx can keep its edge arrows off them.
+  function hudRects() {
+    const out = [];
+    [R.ribbon, R.scoreBlock, R.dial, R.pauseBtn, R.thumbs, R.under].forEach((n) => {
+      const b = n && n.getBoundingClientRect();
+      if (b && b.width > 0 && b.height > 0) out.push({ l: b.left, t: b.top, r: b.right, b: b.bottom });
+    });
+    return out;
+  }
+
+  A.UI = { init, update, hudRects: () => (R.hud && R.hud.classList.contains('on') && S.hudRects) || [] };
 })();
