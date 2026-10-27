@@ -532,8 +532,8 @@
     if (ab && nz(ab.cd) > 0) {
       const ready = !(nz(ab.cdT) > 0);
       if (S.orb.ready === false && ready && S.orb.on) {
-        ring(S.orb.x, S.orb.y, COL.warn, pl.r * 1.6, 0.5, pl.r * 0.3, 2.5);
-        burst(S.orb.x, S.orb.y, { colors: [COL.warn, '#FFF6C4'], n: 7, r: pl.r * 0.6, speed: 3.5, size: 0.2, life: 0.5 });
+        ring(S.orb.x, S.orb.y, COL.warn, pl.r * 1.1, 0.45, pl.r * 0.2, 2.5);
+        burst(S.orb.x, S.orb.y, { colors: [COL.warn, '#FFF6C4'], n: 7, r: pl.r * 0.4, speed: 3.5, size: 0.2, life: 0.5 });
       }
       S.orb.ready = ready;
     } else { S.orb.ready = null; S.orb.on = false; }
@@ -839,7 +839,7 @@
     healthArc(ctx, e, t, R - lw * 2.0, lw);
     armorArcs(ctx, e, z, R + lw * 2.4);
     stateMarks(ctx, e, t, z);
-    abilityOrb(ctx, e, t, z, R);
+    abilityArc(ctx, e, t, z, R, lw);
     ctx.restore();
   }
 
@@ -936,43 +936,40 @@
     }
   }
 
-  // Small orb that trails the creature, fills as the ability recovers and pings pollen when ready.
-  function abilityOrb(ctx, e, t, z, R) {
+  // Short pollen arc outside the growth ring, behind the creature. It grows from its middle as the ability
+  // recovers, glows when ready (update() pings it), and flares while the ability is active.
+  function abilityArc(ctx, e, t, z, R, lw) {
     const ab = e.ability;
     if (!ab || !(nz(ab.cd) > 0)) return;
     const ready = !(nz(ab.cdT) > 0);
     const frac = ready ? 1 : clamp(1 - ab.cdT / ab.cd, 0, 1);
-    const rad = Math.max(e.r * 0.3, 6 / z);
-    const a = e.angle || 0;
-    const o = S.orb;
-    const tx = e.x - Math.cos(a) * (R + rad * 1.5) + Math.cos(a + 1.571) * rad * 0.6;
-    const ty = e.y - Math.sin(a) * (R + rad * 1.5) + Math.sin(a + 1.571) * rad * 0.6;
-    const dt = clamp(S.t - o.t, 0, 0.1);
-    o.t = S.t;
-    if (!o.on || Math.hypot(tx - o.x, ty - o.y) > e.r * 6) { o.x = tx; o.y = ty; o.on = true; }
-    else { const k = 1 - Math.exp(-dt * 9); o.x += (tx - o.x) * k; o.y += (ty - o.y) * k; }
-    const x = o.x - e.x, y = o.y - e.y;
+    const Ra = R + lw * 2.4, half = 0.46;
+    const c = (e.angle || 0) + Math.PI;
+    const w = lw * 1.5;
+    S.orb.x = e.x + Math.cos(c) * Ra; S.orb.y = e.y + Math.sin(c) * Ra; S.orb.on = true;
     ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineWidth = w + 2 / z;
+    ctx.strokeStyle = rgba(COL.soil, 0.45);
+    ctx.beginPath(); ctx.arc(0, 0, Ra, c - half, c + half); ctx.stroke();
+    ctx.lineWidth = w;
+    ctx.strokeStyle = rgba(COL.warn, 0.22);
+    ctx.beginPath(); ctx.arc(0, 0, Ra, c - half, c + half); ctx.stroke();
     if (ready) {
       const p = 0.5 + 0.5 * Math.sin(t * 4);
       ctx.globalCompositeOperation = 'lighter';
-      glowAt(ctx, COL.warn, x, y, rad * (2.3 + 0.4 * p), 0.4 + 0.2 * p);
+      glowAt(ctx, COL.warn, S.orb.x - e.x, S.orb.y - e.y, e.r * (0.9 + 0.15 * p), 0.3 + 0.15 * p);
       ctx.globalCompositeOperation = 'source-over';
       ctx.globalAlpha = 1;
     }
-    ctx.fillStyle = rgba(COL.soil, 0.55);
-    ctx.beginPath(); ctx.arc(x, y, rad, 0, TAU); ctx.fill();
-    ctx.save();
-    ctx.beginPath(); ctx.arc(x, y, rad, 0, TAU); ctx.clip();
-    ctx.fillStyle = ready ? COL.warn : rgba(COL.warn, 0.62);
-    ctx.fillRect(x - rad, y + rad - 2 * rad * frac, 2 * rad, 2 * rad * frac);
-    ctx.restore();
-    ctx.lineWidth = Math.max(1.4 / z, rad * 0.2);
-    ctx.strokeStyle = ready ? '#FFF6C4' : rgba(COL.bone, 0.75);
-    ctx.beginPath(); ctx.arc(x, y, rad, 0, TAU); ctx.stroke();
-    if (nz(ab.activeT) > 0) {
-      ctx.strokeStyle = rgba(COL.warn, 0.9);
-      ctx.beginPath(); ctx.arc(x, y, rad * 1.5, t * 6, t * 6 + 2.2); ctx.stroke();
+    if (nz(ab.activeT) > 0) { // the cooldown restarts on use, so the flare spans the whole arc
+      ctx.lineWidth = w * 1.5;
+      ctx.strokeStyle = '#FFF6C4';
+      ctx.beginPath(); ctx.arc(0, 0, Ra, c - half, c + half); ctx.stroke();
+    } else if (frac > 0.01) {
+      ctx.lineWidth = w;
+      ctx.strokeStyle = ready ? COL.warn : rgba(COL.warn, 0.7);
+      ctx.beginPath(); ctx.arc(0, 0, Ra, c - half * frac, c + half * frac); ctx.stroke();
     }
     ctx.restore();
   }
