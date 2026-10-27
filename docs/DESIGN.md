@@ -353,13 +353,13 @@ At t3_pond, harmony crashes and predators stop being a threat. Hunters probably 
 - Growth ring: a thin leaf-green arc around the body that fills; it pulses when full.
 - Health: a venom-red inner arc, shown only when damaged, fading 3s after regen completes.
 - Hunger: the creature dims and the ring gets a slow pollen pulse below 30% energy, with a soft heartbeat glow below 15%.
-- Ability: a small orb trailing the creature that fills as the cooldown recovers and pops with a pollen ping when ready.
+- Ability: a short pollen arc outside the growth ring, behind the creature, that grows from its middle as the cooldown recovers, glows with a pollen ping when ready, and flares while active.
 - Bite: a crescent flash in front of the mouth; hits spark.
 - Damage numbers: small, venom, only for hits you take or big hits you land.
 - Edible: a leaf outline on edible creatures near you. Danger: a venom outline, plus a pulsing red rim during windup.
 
 **Screen HUD** (DOM, minimal, no boxes):
-- **The food-chain ribbon (the one memorable element)** sits top-center: a thin horizontal strip of this tier's species icons, ordered by size, with a marker for you. Everything left of the marker glows leaf (food); everything right is venom (danger); the in-between "fight" zone is pale. As you grow, the marker slides right and icons cross from danger to food. That teaches the core rule. On evolve, the ribbon unfurls downward into the evolve cards.
+- **The food-chain ribbon (the one memorable element)** sits top-center: a thin horizontal strip of this tier's species icons, ordered by size, with a marker for you. Everything left of the marker glows leaf (food); everything right is venom (danger); the in-between "fight" zone is pale. As you grow, the marker slides right and icons cross from danger to food. That teaches the core rule. Icons are flat silhouettes tinted by zone; only the ones nearest your size (the biggest thing you can eat, anything you can fight, the next thing up) show real colours. On evolve, the ribbon unfurls downward into the evolve cards.
 - **Top right**: score and time as bare bone-colored numbers with a soft text shadow.
 - **Bottom center**: one small harmony dial (spore arc plus a number). The world grade does the rest.
 - **Tab (hold)**: the ecosystem view, a clean food-web diagram of this tier (species nodes sized by population with healthy-band rings; arrows from prey to predator; red or green halos for low/high), so the eco system is understandable.

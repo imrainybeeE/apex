@@ -27,6 +27,12 @@ python3 -m http.server 8642          # or open index.html directly (file:// work
 node tools/check.mjs smoke           # 35 steps: modes, combat, abilities, tutorial, mobile, file://; exit 1 on any error
 node tools/check.mjs sim --runs 2 --paths shared   # headless balance sims, 3 bots, prints PASS/FAIL per target
 node tools/check.mjs shots           # desktop + mobile screenshots of every screen into shots/
+node tools/ui-shots.mjs <round> [names] [--desktop|--mobile]   # the UI critique pass: every screen and HUD state
+                                     # (busy combat, eco view, tutorial, intro, evolve, death, final hold) at
+                                     # 1440x900 + 390x844, one browser launch, into shots/ui/r<round>/
+python3 tools/pair.py shots/ui/r<round> <outDir>   # desktop|mobile side-by-side pairs, cheap to review
+node tools/ring-check.mjs [outDir]   # close-ups of the player's rings frozen in states (cooling, ready, active,
+                                     # hurt + hungry), ant and frog, desktop + mobile
 node tools/stubcheck.mjs <files> --eval "<js>"     # load scripts in a Node vm with stubbed browser APIs
 ```
 
@@ -51,9 +57,10 @@ Plain HTML + Canvas 2D + DOM, classic scripts sharing `window.Apex` (no build st
 | `js/shapes-land.js` | 1005 | quadruped/frog/lizard/serpent plans, `A.VKit` helpers |
 | `js/shapes-air-water.js` | 439 | bird/fish plans (needs VKit, loads after land) |
 | `js/world.js` | 2024 | World dispatcher, depth layers, biomes litter/undergrowth/pond, harmony grading |
-| `js/fx.js` | 2541 | particles, cues, threat arrows, decomposition sequence, evolve transition — **to be partly reworked into the in-world HUD** |
-| `js/ui.js` + `css/style.css` | 1220 + ~500 | old box-style HUD and screens — **to be replaced** |
+| `js/fx.js` | ~2550 | particles, cues, threat arrows, decomposition sequence, evolve transition, and the **in-world HUD** (`drawOverlay`: growth ring, HP arc, hunger dim, ability arc, armor arcs, state marks, edible/danger outlines, tutorial highlight) |
+| `js/ui.js` + `css/style.css` | ~1250 + ~570 | DOM HUD and screens: food-chain ribbon, score/time, harmony dial, Tab eco view, banners, tutorial/tip bubbles, touch thumbs, dew-film menus; publishes `A.UI.hudRects()` |
 | `tools/check.mjs` | ~950 | smoke / sim / shots harness with a built-in static server |
+| `tools/ui-shots.mjs`, `tools/ring-check.mjs`, `tools/pair.py` | — | UI screenshot passes (see §2) |
 | `tools/preview-*.html` | — | per-module preview pages (shapes, world, fx, ui) |
 
 **Conventions** (Appendix D):
@@ -63,9 +70,16 @@ Plain HTML + Canvas 2D + DOM, classic scripts sharing `window.Apex` (no build st
 - World/FX draw functions get ctx in screen space; use `A.applyCam` for world space.
 - Shapes draw entity-local, facing +x.
 
-## 4. Where it stands (commit `aa91135`)
+## 4. Where it stands
 
 **Done and verified (smoke 35/35, 0 errors):**
+- **M1.5 UI (step 1) is done.** The user judged the current UI "pretty alright"; the playtest complaint was about the old corner boxes, which are gone. In place:
+  - **Ribbon** (top centre): this tier's animals sorted by size on a food | fight | danger thread with a sliding "You" marker. Icons are zone-tinted silhouettes (leaf = food, venom = danger, pale = much bigger); only the biggest thing you can eat, anything you can fight, and the next thing up keep their real colours and a ring. It unfurls into the evolve cards.
+  - **In-world rings** around the player: leaf growth ring, venom HP arc inside it when hurt, hunger dim + pollen pulse, bone armor arc in front, and the **ability charge as a short pollen arc behind the creature** (grows from its middle, glows + pings when ready, flares while active).
+  - Bare score/time top right, harmony dial bottom centre (tap = eco view on touch), Tab eco view ("Who eats whom"), mishap banners and the final-hold panel under the ribbon, tutorial bubbles + highlights, one-time tips (they wait while a mishap banner is up), touch Bite/Dash/Ability thumbs + pause, dew-film menus, ability visuals.
+  - Offscreen threat arrows keep off the HUD: ui.js reports HUD boxes via `A.UI.hudRects()` at 10 Hz and fx pulls each arrow inward along its direction until clear.
+  - NPC health arcs only show in play/intro, so death and rebirth screens stay clean.
+  - Latest critique screenshots: `shots/ui/r6/` (before: `r5/`).
 - **M1 slice**: shared tiers t1_litter → t2_under → t3_pond.
   - Pond is temporarily final: full growth starts a 45s "hold the balance" phase, then victory.
   - Core flows: evolve cards, decomposer death → rebirth one tier lower at 40% growth, mishaps, pause, restart, mobile, file://.
@@ -78,11 +92,11 @@ Plain HTML + Canvas 2D + DOM, classic scripts sharing `window.Apex` (no build st
   - Tutorial logic: steps move → eat → grow → bite → danger → ability → harmony, skippable, remembered in `localStorage 'apex.tutorial'`.
   - The combat interface for the UI is in DESIGN.md M1.5 ("Combat" and the UI agent's field list): `hp, maxHp, biteCdT, stunT, slowT, angryT, flinchT, ability{id,cd,cdT,activeT}`, `G.zones`, `sp:'carcass'`/`'decoy'`, and the events `bite, damage, abilityUse, angry, flinch, carcass, tutorialStep`, plus `G.tutorial` and `G.tip`.
 
-**Playtest feedback (2026-10-23), still open:**
-1. **UI is "absolutely terrible"**: cluttered corner boxes. It needs the M1.5 UI design system (not started).
-2. **No onboarding.** The tutorial logic exists but has **no visuals yet**, because the UI agent was stopped before editing.
-3. **Plays way too fast.** The target is about 15 min per full 6-tier run, so about 2–2.5 min per tier.
-4. **Pond tier breaks**: harmony crashes, predators stop being a threat, and nobody kills you.
+**Playtest feedback (2026-10-23):**
+1. ~~UI is "absolutely terrible"~~: fixed by the M1.5 UI above.
+2. ~~No onboarding~~: the tutorial has its bubbles, highlights and target ring.
+3. **Plays way too fast** (open). The target is about 15 min per full 6-tier run, so about 2–2.5 min per tier.
+4. **Pond tier breaks** (open): harmony crashes, predators stop being a threat, and nobody kills you.
 
 **Balance baseline after combat (sim, 2 seeds, shared path):**
 - **Balanced bot**:
@@ -111,18 +125,7 @@ Plain HTML + Canvas 2D + DOM, classic scripts sharing `window.Apex` (no build st
 
 Each step ends with smoke passing and a commit.
 
-1. **UI overhaul (M1.5 "UI design system")**:
-   - **Files**: `js/ui.js`, `css/style.css`, the cue and overlay parts of `js/fx.js`, and the fonts plus `js/tutorial.js` script tag in `index.html`. The tag is already present? Check; smoke shows the tutorial running, so it loads.
-   - **Must have**:
-     - The in-world HUD around the creature: growth ring, HP arc when hurt, hunger dim and pulse, ability orb, bite crescent, damage numbers, edible/danger outlines.
-     - The **food-chain ribbon** as the one hero element (food | fight | danger zones with a sliding "you" marker; it unfurls into the evolve cards).
-     - Bare score and time, a small harmony dial, and the Tab ecosystem food-web view.
-     - Tutorial hint bubbles and highlights from `G.tutorial`, and tips from `G.tip`.
-     - Touch Bite/Dash/Ability buttons.
-     - Dew-film menus in Bricolage Grotesque + Atkinson Hyperlegible.
-     - Visuals for the abilities: spray cone, roll glint, web disc, charge streak, tongue line, decoy, stun stars, anger mark.
-   - **Process**: settle the ribbon and in-world rings with 2–3 quick prototypes first (see §6). Then build, take one batched screenshot pass at 1440×900 and 390×844, critique, fix, and repeat (max 5 passes).
-   - Keep the old fx particles, decomposition and evolve sequences.
+1. ~~UI overhaul~~: done (see §4). For any later UI change, run `node tools/ui-shots.mjs <round>` before and after, review with `tools/pair.py`, then smoke.
 2. **Balance and pond fix**: hit the sim targets above. Diagnose the pond with `?tier=t3_pond&debug=1` plus the sim (hunter counts over time). Then re-run smoke.
 3. **Windows check**: Playwright Chromium + Firefox at deviceScaleFactor 1, 1.25 and 1.5. Check right-click dash (contextmenu suppressed), font fallback (Segoe UI), and the backdrop-filter fallback. Real Windows can't be confirmed from macOS; say so.
 4. **Hand a build to playtesters**: zip the folder (exclude `node_modules`, `shots`, `tools/scratch`); they double-click `index.html`.
@@ -169,4 +172,6 @@ The user asked which skills from `cursor/plugins` pstack suit this work style. I
 - **Sick tint applied twice**: sick creatures are tinted by both the shapes and fx. Drop fx's blob and keep its bubbles.
 - **Mobile intro card**: on mobile it covers the player. The M1.5 spec moves it to a compact top banner.
 - **Parallel-build leftovers**: the role field in config has both short and long forms (core maps them), and the player's role is `'player'`.
-- **Git**: the repo has commits `1db6372` (M1 + combat) and `aa91135` (working rule). Commit after each verified unit.
+- **Browser pane**: when the in-app browser pane is hidden it runs as a background page. The canvas reports 0×0, the game auto-pauses and runs very slowly, so don't judge visuals or timing there. Use the headless scripts in §2 instead (one browser launch each).
+- **Frozen-time screenshots**: `ring-check.mjs` freezes time with `G.timeScale`, so particles freeze too. A yellow ring left over from the "ability ready" ping can show in later states; it's a test artifact.
+- **Git**: no remote; work commits straight to `master`. Commit after each verified unit.
