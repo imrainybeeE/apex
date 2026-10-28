@@ -1,0 +1,16 @@
+/* Apex title logo (js/logo.js draws the inline SVG). Overrides the text wordmark in style.css. */
+.logo {
+  width: min(560px, 100%); margin: 0 0 6px -4px;
+  font-size: 0; line-height: 0; text-shadow: none;
+}
+.logo svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+/* One orchestrated moment: the Old One's claws rake down the X as the title appears. */
+.logo-claws { animation: logo-rake .5s cubic-bezier(.2, .8, .2, 1) .25s both; }
+@keyframes logo-rake {
+  from { opacity: 0; transform: translate(14px, -20px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .logo-claws { animation: none; } }
+
+@media (max-height: 520px) { .logo { width: min(300px, 100%); } }

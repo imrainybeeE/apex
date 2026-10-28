@@ -234,7 +234,7 @@
     const s = R.title = el('section', 'screen title hit', '', root);
     s.innerHTML =
       '<div class="title-wrap">' +
-        '<h1 class="logo">Apex</h1>' +
+        '<h1 class="logo" aria-label="Apex">' + (A.Logo && A.Logo.markup ? A.Logo.markup() : 'Apex') + '</h1>' +
         '<p class="tagline">Eat what\'s smaller. Escape what\'s bigger. Keep the forest floor alive.</p>' +
         '<div class="title-actions">' +
           '<button class="btn primary big" data-sfx data-act="play">Play</button>' +
