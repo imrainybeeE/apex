@@ -149,6 +149,11 @@
 
   // The first death in a tier is forgiven: reborn in the same tier at FORGIVE_GROWTH. Dying there again drops a tier.
   function rebirthChoices() {
+    if (G.boss) {   // killed by the boss: rise again at full size and fight it again
+      const t = tiersOf()[G.tierId];
+      return playersOf(t).filter((sp) => sp === G.player.sp).concat(playersOf(t).filter((sp) => sp !== G.player.sp))
+        .map((sp) => ({ sp, tierId: G.tierId, path: t.path, growth: 1, bossRetry: true }));
+    }
     const forgive = G.tierDeaths <= 1;
     const lt = forgive ? G.tierId : A.lowerTier(G.tierId);
     const t = tiersOf()[lt];
@@ -510,11 +515,13 @@
   function checkProgress(p, dt) {
     if (p.growth >= 1 && !G.final) onFullGrowth(p);
     if (G.final && G.mode === 'play') {
+      if (G.boss) return;   // the boss fight pauses the hold; boss.js ends the game when it falls
       if (G.eco.harmony >= cf('FINAL_HARMONY')) G.finalHold += dt;
       if (G.finalHold >= cf('FINAL_HOLD')) victory();
     }
   }
 
+  A.victory = function () { victory(); };
   function victory() {
     if (G.mode === 'victory') return;
     setMode('victory');
@@ -554,6 +561,7 @@
     } else {
       const tid = c.tierId || A.lowerTier(G.tierId);
       startTier(tid, sp, { growth: c.growth != null ? c.growth : cf('RESPAWN_GROWTH') });
+      G.bossRetry = !!c.bossRetry;   // boss.js brings the beast straight back
       setMode('intro');
       A.emit('rebirth', { sp, tierId: tid });
     }
@@ -755,7 +763,7 @@
     c.x += (tx - c.x) * kp;
     c.y += (ty - c.y) * kp;
     c.x = clamp(c.x, 0, G.world); c.y = clamp(c.y, 0, G.world);
-    const target = viewHeight(p);
+    const target = viewHeight(p) * (G.boss ? 1.3 : 1);   // pull back so both fighters fit
     c.vh += (target - c.vh) * (1 - Math.exp(-dt * 4));
     c.dashZ += ((p.dashT > 0 ? 1.05 : 1) - c.dashZ) * (1 - Math.exp(-dt * 6));
     let evo = 1;
@@ -795,7 +803,9 @@
 
   function botSteer(p, dt) {
     let b = null;
-    if (A.AI && A.AI.bot) { try { b = A.AI.bot(G, dt); } catch (err) { report('AI.bot', err); } }
+    const bossBot = A.Boss && A.Boss.active && A.Boss.active() && A.Boss.bot;
+    if (bossBot) { try { b = A.Boss.bot(G, dt); } catch (err) { report('Boss.bot', err); } }
+    else if (A.AI && A.AI.bot) { try { b = A.AI.bot(G, dt); } catch (err) { report('AI.bot', err); } }
     if (!b) b = fallbackBot(p);
     const len = Math.sqrt(b.dx * b.dx + b.dy * b.dy);
     if (len > 0.01) { steer.dx = b.dx / len; steer.dy = b.dy / len; steer.mag = 1; }
@@ -937,7 +947,7 @@
     if (mode === 'title') { p.energy = cf('ENERGY_MAX'); return; }
     if (mode !== 'play' && mode !== 'intro') return;
     const flags = G.eco.flags || {};
-    const drain = ((G.tier && G.tier.drain) || 1.4) * st.drainMul * (flags.famine ? 1.4 : 1) * (p.poisonT > 0 ? 3 : 1);
+    const drain = ((G.tier && G.tier.drain) || 1.4) * st.drainMul * (flags.famine ? 1.4 : 1) * (p.poisonT > 0 ? 3 : 1) * (G.boss ? 0 : 1);   // no starving mid boss fight
     if (mode === 'play') {
       p.energy = Math.max(0, p.energy - drain * dt);
       if (p.sinceHurt >= cf('REGEN_DELAY') && p.hp < p.maxHp && p.energy > cf('ENERGY_MAX') * cf('REGEN_ENERGY')) {
@@ -956,11 +966,12 @@
 
   // ---------- AI, integration ----------
   function runAI(dt) {
+    mod('Boss', 'update', G, dt);   // the legend beast is steered by boss.js, not the animal AI
     if (!A.AI || !A.AI.update) return;
     const list = G.entities;
     for (let i = 0, n = list.length; i < n; i++) {
       const e = list[i];
-      if (e.isPlayer || !e.alive) continue;
+      if (e.isPlayer || !e.alive || e.boss) continue;
       try { A.AI.update(e, dt, G); } catch (err) { report('AI.update', err); }
     }
   }
@@ -982,7 +993,7 @@
         if (e.slowT > 0) { e.slowT -= dt; if (e.slowT <= 0) { e.slowT = 0; e.slowMul = 1; } }
         if (e.dmgAcc > 0) { e.dmgAccT -= dt; if (e.dmgAccT <= 0) e.dmgAcc = 0; }
         e.sinceHurt += dt;
-        if (!e.isPlayer && e.hp < e.maxHp && e.sinceHurt > cf('NPC_REGEN_DELAY')) {
+        if (!e.isPlayer && !e.boss && e.hp < e.maxHp && e.sinceHurt > cf('NPC_REGEN_DELAY')) {
           e.hp = Math.min(e.maxHp, e.hp + cf('NPC_REGEN') * e.maxHp * dt);
         }
       } else if (e.sp === 'carcass') {
@@ -1082,7 +1093,7 @@
 
   // Neutral: an animal that is neither food for the player nor able to eat the player.
   function isNeutral(p, o) {
-    if (!isAnimal(o) || canEat(p, o)) return false;
+    if (!isAnimal(o) || o.boss || canEat(p, o)) return false;
     return !(o.role === 'hunter' && o.r * cf('EAT_RATIO') > p.r);   // by size, so a hunter is no neutral while the player is briefly invulnerable
   }
 
@@ -1131,7 +1142,7 @@
 
   // kind: 'lunge' (hunter attack, armor can absorb it), 'nip' (angry neutral)
   function hurtPlayer(p, amount, by, opts) {
-    if (!p.alive || p.invulnT > 0 || G.final) return 0;
+    if (!p.alive || p.invulnT > 0 || (G.final && !(opts && opts.boss))) return 0;   // only the boss can hurt you in the final hold
     const kind = (opts && opts.kind) || 'lunge';
     amount *= tutorialDmgMul();
     if (by) by.biteT = 0.25;
@@ -1180,7 +1191,7 @@
       if (angDiff(Math.atan2(dy, dx), p.angle) > arc + Math.atan2(o.r * 0.8, Math.max(d, 1))) continue;
       hits.push(o);
       if (canEat(p, o)) { playerEats(p, o); continue; }
-      const big = o.r > p.r * fight;
+      const big = o.r > p.r * fight && !o.boss;   // the boss is meant to be fought: full damage
       damageEntity(o, dmg * (big ? cf('BIG_DMG_FRAC') : 1), p, { kind: 'bite' });
       if (o.alive) { knock(o, p, big ? 60 : 110); if (isNeutral(p, o)) makeAngry(o); }
       if (big) knock(p, o, 260);       // too big to hurt: you bounce off
@@ -1206,7 +1217,7 @@
       if (angDiff(Math.atan2(dy, dx), p.angle) > half + Math.atan2(o.r * 0.8, Math.max(d, 1))) continue;
       hits.push(o);
       o.slowT = Math.max(o.slowT, def.slowT); o.slowMul = Math.min(o.slowMul, def.slowMul);
-      damageEntity(o, dmg * (o.r > p.r * fight ? cf('BIG_DMG_FRAC') : 1), p, { kind: 'spray' });
+      damageEntity(o, dmg * (o.r > p.r * fight && !o.boss ? cf('BIG_DMG_FRAC') : 1), p, { kind: 'spray' });
       if (o.alive && isNeutral(p, o)) makeAngry(o);
     }
     p.ability.activeT = 0.35;
@@ -1250,7 +1261,7 @@
       p.chargeHit.push(o);
       o.stunT = Math.max(o.stunT, def.stunT);
       knock(o, p, 380);
-      damageEntity(o, biteDamage(p) * def.dmgMul * (o.r > p.r * cf('FIGHT_RATIO') ? cf('BIG_DMG_FRAC') : 1), p, { kind: 'charge' });
+      damageEntity(o, biteDamage(p) * def.dmgMul * (o.r > p.r * cf('FIGHT_RATIO') && !o.boss ? cf('BIG_DMG_FRAC') : 1), p, { kind: 'charge' });
       if (o.alive && isNeutral(p, o)) makeAngry(o);
       A.emit('abilityHit', { e: p, id: 'charge', target: o });
     }
@@ -1706,6 +1717,7 @@
     if (!tier) return;
     drawMod(ctx, 'World', 'drawDepthBelow', cam, t);
     drawMod(ctx, 'World', 'drawBack', cam, t);
+    drawMod(ctx, 'Boss', 'drawGround', cam, t);   // telegraph lanes and rings sit under the animals
     drawEntities(ctx, t);
     if (G.mode === 'dying') {
       drawMod(ctx, 'FX', 'drawDecompose', cam, t, G.deathInfo, clamp(G.transT / cf('DECOMPOSE_TIME'), 0, 1));
@@ -1713,6 +1725,7 @@
     drawMod(ctx, 'FX', 'drawWorld', cam, t);
     drawMod(ctx, 'World', 'drawFront', cam, t);
     drawMod(ctx, 'World', 'drawDepthAbove', cam, t);
+    drawMod(ctx, 'Boss', 'drawScreen', t);
     drawMod(ctx, 'FX', 'drawScreen', t);
     if (G.mode === 'evolving') drawMod(ctx, 'FX', 'drawEvolve', clamp(G.transT / cf('EVOLVE_TIME'), 0, 1));
     if (G.flags.debug) drawDebug(ctx);
@@ -1813,7 +1826,7 @@
     window.addEventListener('resize', resize);
     window.addEventListener('orientationchange', resize);
     bindInput();
-    ['World', 'FX', 'Audio', 'UI', 'Editor'].forEach((n) => mod(n, 'init'));
+    ['World', 'FX', 'Boss', 'Audio', 'UI', 'Editor'].forEach((n) => mod(n, 'init'));
     A.on('mishapStart', () => { G.stats.mishaps++; showTip('mishap'); });
     A.on('playerDeath', () => showTip('death'));
     A.on('evolveReady', () => showTip('evolve'));

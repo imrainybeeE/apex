@@ -37,9 +37,9 @@
     ANGRY_TIME: 6, ANGRY_SPEED: 1.15, ANGRY_BUMP_SPEED: 90, ANGRY_LEASH: 400,
     // Difficulty (title screen): growth = pacing multiplier, playerDmg / enemyDmg scale every attack. Base values = Scary.
     DIFFICULTY: {
-      easy: { name: 'Easy', growth: 1.5, playerDmg: 1.2, enemyDmg: 1 },
-      normal: { name: 'Normal', growth: 1.25, playerDmg: 1.15, enemyDmg: 1.15 },
-      scary: { name: 'Scary', growth: 1, playerDmg: 1, enemyDmg: 1 },
+      easy: { name: 'Easy', growth: 1.5, playerDmg: 1.2, enemyDmg: 1, bossHp: 0.8 },
+      normal: { name: 'Normal', growth: 1.25, playerDmg: 1.15, enemyDmg: 1.15, bossHp: 1 },
+      scary: { name: 'Scary', growth: 1, playerDmg: 1, enemyDmg: 1, bossHp: 1.15 },
     },
     RESTART_HOLD: 0.7, CARCASS_TIME: 25, CARCASS_GROWTH: 0.5, DECOY_TIME: 3, TIP_TIME: 8,
     TUT_BEETLE_DMG: 0.35,                                // tutorial step 5: beetle damage multiplier
@@ -143,6 +143,7 @@
         ability: { id: 'roll', name: 'Brace', blurb: 'Plant your feet and shrug off every hit for 2 seconds, knocking attackers back.', cd: 10, dur: 2, speedMul: 0.5, knock: 620, stunT: 0.4 } }),
     boar: S('Wild Boar', 'Sus scrofa', 'Boars plough up the soil with their snouts looking for roots and grubs, which helps new plants sprout.'),
     deer: S('Mule Deer', 'Odocoileus hemionus', 'Mule deer bounce on all four legs at once, a jump called stotting that shows hunters they are hard to catch.'),
+    cavebear: S('The Old One', 'Ursus spelaeus', 'Cave bears were real: giant Ice Age bears up to twice the weight of a grizzly. They died out about 24,000 years ago.'),
     elk: S('Elk', 'Cervus canadensis', 'Bull elk grow a new set of antlers every year, and they can weigh as much as a child.'),
   };
 
@@ -261,6 +262,8 @@
       id: 't6_valley', depth: 6, path: 'land', biome: 'valley', habitat: 'land',
       name: 'Winter Valley', blurb: 'Frost on the willows and elk in the river bottom. Rule the valley without emptying it.',
       players: ['wolf', 'bear'], next: [], prev: 't5_forest', final: true,
+      // The legend beast crashes in during the hold (js/boss.js). Damage is a share of your full-grown health.
+      boss: { sp: 'cavebear', at: 15, r: 52, hp: 4800, speed: 125, charge: 0.26, swipe: 0.2, slam: 0.32, roar: 0.1 },
       maxScale: 2.6, growthNeeded: 560, drain: 1.4, world: 1200,
       roster: [
         P('willow', 14, 16),

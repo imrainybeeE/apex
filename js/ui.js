@@ -364,6 +364,13 @@
     R.tut = bubble('tut', true);
     R.tip = bubble('tip', false);
 
+    // boss: a big health bar that takes the ribbon's place, and a title card when it arrives
+    R.bossbar = el('div', 'bossbar', '<div class="bb-name"><strong></strong><span></span></div><div class="bb-bar"><i class="bb-lag"></i><i class="bb-fill"></i><b class="bb-pip p1"></b><b class="bb-pip p2"></b></div>', h);
+    R.bbName = R.bossbar.querySelector('strong'); R.bbTitle = R.bossbar.querySelector('span');
+    R.bbFill = R.bossbar.querySelector('.bb-fill'); R.bbLag = R.bossbar.querySelector('.bb-lag');
+    R.bossTitle = el('div', 'boss-title', '<strong></strong><span>Hold your ground. Watch its tells, dodge, then strike.</span>', h);
+    if (A.on) A.on('bossArrive', () => { S.bossTitleUntil = now() + 3800; });
+
     // hold-R restart: a small bar that fills while R is held
     R.hold = el('div', 'hold-r', '<span>Hold R to restart</span><i></i>', h);
     R.holdFill = R.hold.querySelector('i');
@@ -902,6 +909,21 @@
   }
 
   // ---------- tutorial + tip bubbles ----------
+  function frameBoss(dt) {
+    const B = G && G.boss, on = !!(B && B.shown > 0);
+    flag(R.hud, 'boss-on', on);
+    flag(R.bossbar, 'on', on);
+    flag(R.bossTitle, 'on', !!B && now() < (S.bossTitleUntil || 0));
+    if (!B) { S.bbLag = 1; return; }
+    setText(R.bbName, B.name); setText(R.bossTitle.firstChild, B.name + ' awakens');
+    setText(R.bbTitle, B.phase === 3 ? 'Enraged' : B.title);
+    flag(R.bossbar, 'enraged', B.phase === 3);
+    const f = B.maxHp > 0 ? clamp(B.hp / B.maxHp, 0, 1) : 1;
+    S.bbLag = S.bbLag == null ? f : (S.bbLag > f ? S.bbLag - Math.min(S.bbLag - f, dt * 0.35) : f);   // white chunk drains after a hit
+    setStyle(R.bbFill, 'transform', 'scaleX(' + f.toFixed(4) + ')');
+    setStyle(R.bbLag, 'transform', 'scaleX(' + S.bbLag.toFixed(4) + ')');
+  }
+
   function frameHold() {
     const k = G && G.restartHold > 0 ? Math.min(1, G.restartHold / cfg('RESTART_HOLD', 0.7)) : 0;
     flag(R.hold, 'on', k > 0);
@@ -1276,6 +1298,7 @@
       frameRibbon(dt);
       frameBubbles(dt);
       frameHold();
+      frameBoss(dt);
     }
     // ecosystem view (hold Tab, or the pinned toggle for touch)
     const ecoWanted = (G.mode === 'play' || G.mode === 'intro') && !!((A.input && A.input.ecoView) || S.tabHeld || S.ecoPin);

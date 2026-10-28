@@ -8,7 +8,8 @@
 
   let ac = null, master = null, sfxBus = null, musicBus = null;
   const buffers = {};             // id -> [AudioBuffer]
-  let musicBuffers = [], musicSrc = null, musicKey = null, musicIdx = 0;
+  const musicLists = { game: [], boss: [] };   // decoded tracks per playlist
+  let musicSrc = null, musicKey = null, musicList = 'game', musicIdx = 0;
   const last = {};                // id -> last play time (rate limits)
   let muted = false, comboTimer = 0, comboMax = 0, dyingTimers = [];
 
@@ -36,7 +37,7 @@
     sfxBus = ac.createGain(); sfxBus.gain.value = 0.8; sfxBus.connect(master);
     musicBus = ac.createGain(); musicBus.gain.value = 0.32; musicBus.connect(master);
     decodeAll(A.SOUND_DATA, (id, i, b) => { (buffers[id] = buffers[id] || [])[i] = b; });
-    decodeAll(A.MUSIC_DATA, (id, i, b) => { if (id === 'game') { musicBuffers[i] = b; if (musicKey && !musicSrc) startTrack(); } });
+    decodeAll(A.MUSIC_DATA, (id, i, b) => { (musicLists[id] = musicLists[id] || [])[i] = b; if (musicKey && !musicSrc && id === musicList) startTrack(); });
     return true;
   }
 
@@ -92,9 +93,9 @@
     s.start();
   }
 
-  // ---- music: one looping playlist of calm game tracks; quieter while dying and on menus
+  // ---- music: a looping playlist of calm game tracks (quieter while dying and on menus); the boss has its own
   function startTrack() {
-    const list = musicBuffers.filter(Boolean);
+    const list = (musicLists[musicList] || []).filter(Boolean);
     if (!ac || !list.length) return;
     const b = list[musicIdx % list.length];
     musicIdx++;
@@ -108,7 +109,12 @@
   function setMusic(key) {
     if (!ensure()) return;
     musicKey = key;
-    const level = key === 'menu' ? 0.22 : key === 'quiet' ? 0.12 : 0.32;
+    const list = key === 'boss' ? 'boss' : 'game';
+    if (list !== musicList) {   // switch playlists: drop the current track
+      musicList = list; musicIdx = 0;
+      if (musicSrc) { const s = musicSrc; musicSrc = null; try { s.onended = null; s.stop(); } catch (e) { /* already stopped */ } }
+    }
+    const level = key === 'boss' ? 0.5 : key === 'menu' ? 0.22 : key === 'quiet' ? 0.12 : 0.32;
     musicBus.gain.setTargetAtTime(level, ac.currentTime, 0.6);
     if (!musicSrc) startTrack();
   }
@@ -157,6 +163,28 @@
     on('rebirth', () => play('hatch', { vol: 0.8 }));
     on('victory', () => { play('levelup', { vol: 0.7 }); play('chime', { vol: 0.6 }); });
     on('uiClick', () => play('ui', { vol: 0.45, gap: 0.05 }));
+    // the boss: everything at once
+    on('bossArrive', () => { play('horn', { vol: 0.9 }); play('thunder', { vol: 0.8 }); setTimeout(() => play('emerge', { vol: 0.9 }), 900); setTimeout(() => play('boss_roar', { vol: 1 }), 1600); setMusic('boss'); });
+    on('bossWindup', (d) => {
+      const k = d && d.kind;
+      if (k === 'charge') play('boss_roar', { vol: 0.85, pitch: 1.05, gap: 0.3 });
+      else if (k === 'slam') play('boss_roar', { vol: 0.9, pitch: 0.8 });
+      else if (k === 'roar') play('boss_charge', { vol: 0.9 });
+      else if (k === 'phaseRoar') { play('boss_roar', { vol: 1, pitch: 0.85 }); play('thunder', { vol: 0.6 }); }
+      else if (k === 'swipe') play('growl_big', { vol: 0.8, pitch: 0.7 });
+    });
+    on('bossAttack', (d) => {
+      const k = d && d.kind;
+      if (k === 'slam') { play('slam', { vol: 1 }); play('slam', { vol: 0.7, pitch: 0.7 }); }
+      else if (k === 'roar') play('sonic', { vol: 0.9 });
+      else if (k === 'charge') play('dash', { vol: 0.9, pitch: 0.55 });
+      else if (k === 'swipe') play('bite', { vol: 0.9, pitch: 0.6 });
+    });
+    on('damage', (d) => { if (d && d.target && d.target.boss) play('boss_hurt', { vol: 0.75, pitch: 0.8, gap: 0.35 }); });
+    on('bossStun', () => play('slam', { vol: 0.6, pitch: 1.3 }));
+    on('bossEnrage', () => { play('enrage', { vol: 0.9 }); play('thunder', { vol: 0.9 }); });
+    on('thunder', () => play('thunder', { vol: 0.75 }));
+    on('bossDeath', () => { play('boss_death', { vol: 1 }); play('levelup', { vol: 0.6, pitch: 0.8 }); setMusic('menu'); });
     on('modeChange', (d) => {
       const to = d && d.to;
       dyingTimers.forEach(clearTimeout); dyingTimers = [];
@@ -170,7 +198,7 @@
   }
 
   function stats() {
-    return { state: ac ? ac.state : 'none', sfx: Object.keys(buffers).length, music: musicBuffers.filter(Boolean).length, muted };
+    return { state: ac ? ac.state : 'none', sfx: Object.keys(buffers).length, music: musicLists.game.filter(Boolean).length, boss: musicLists.boss.filter(Boolean).length, list: musicList, muted };
   }
 
   const API = { init, unlock, setMusic, play, toggleMute, stats, muted: false };

@@ -463,6 +463,19 @@
         const x = rx + len * (0.08 + 0.84 * rnd(e, 20 + k * 2)), y = (rnd(e, 21 + k * 2) - 0.5) * W * 1.6;
         circ(ctx, x, y, W * (0.09 + 0.11 * rnd(e, 60 + k))); ctx.fill();
       }
+    } else if (m === 'scars') {   // glowing claw scars (the legend beast); brighter as it is hurt
+      const hurt = e.maxHp > 0 ? 1 - e.hp / e.maxHp : 0, glow = 0.55 + 0.45 * hurt;
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineCap = 'round';
+      for (let k = 0; k < 3; k++) {
+        const x = rx + len * (0.35 + 0.12 * k);
+        for (const [lw, a] of [[W * 0.32, 0.18 * glow], [W * 0.1, 0.9 * glow]]) {
+          ctx.strokeStyle = 'rgba(127,232,212,' + a.toFixed(3) + ')'; ctx.lineWidth = lw;
+          ctx.beginPath(); ctx.moveTo(x - W * 0.3, -W * 0.85); ctx.lineTo(x + W * 0.35, W * 0.2); ctx.stroke();
+        }
+      }
+      ctx.globalCompositeOperation = 'source-over';
     } else if (m === 'saddle') {
       ctx.fillStyle = P.dark; ctx.globalAlpha = 0.55;
       oval(ctx, rx + len * 0.5, 0, len * 0.34, W * 0.6, 0); ctx.fill();
@@ -1072,6 +1085,12 @@
       eye: 0.24, ear: 'long', earSize: 0.85, tail: 'short', tailLen: 0.8, tailTip: 'dark', leg: 1.3, gait: 'trot',
       muzzle: true, bellySide: true,
       pal: { body: '#9c7c58', belly: '#ece0ca', accent: '#efe4d0', dark: '#2a2016', eye: '#120c08' },
+    },
+    cavebear: {   // the boss: an Ice Age cave bear, huge and dark, with glowing scars
+      plan: 'quadruped', habitat: 'land', matte: true, len: 1.85, wid: 0.95, head: 0.78, snout: 0.95, snoutW: 0.48,
+      eye: 0.14, ear: 'round', earSize: 0.45, tail: 'stub', tailLen: 0.5, leg: 1.1, gait: 'walk', flex: 0.45, waist: 0.95,
+      muzzle: true, darkLegs: true, mark: 'scars',
+      pal: { body: '#4b3a2c', belly: '#6f5944', accent: '#7FE8D4', dark: '#160f0a', eye: '#ff6a3a' },
     },
     elk: {
       plan: 'quadruped', habitat: 'land', matte: true, len: 1.75, wid: 0.62, head: 0.8, snout: 1.0, snoutW: 0.44,

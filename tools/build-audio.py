@@ -42,8 +42,21 @@ SFX = {
     'splash': ['random/splash'],
     'pop': ['random/pop'],
     'ui': ['ui/hud/hud_bubble', 'random/click'],
+    # the boss: horn, thunder, layered roars (Warden, Ravager, Ender Dragon), slams, sonic boom
+    'horn': ['event/raid/raidhorn_01', 'event/raid/raidhorn_02'],
+    'thunder': ['ambient/weather/thunder1', 'ambient/weather/thunder2', 'ambient/weather/thunder3'],
+    'boss_roar': ['mob/warden/roar_1', 'mob/warden/roar_2', 'mob/ravager/roar1', 'mob/ravager/roar2', 'mob/enderdragon/growl1', 'mob/enderdragon/growl2'],
+    'boss_charge': ['mob/warden/sonic_charge1', 'mob/warden/sonic_charge2'],
+    'sonic': ['mob/warden/sonic_boom1', 'mob/warden/sonic_boom2'],
+    'slam': ['random/explode1', 'random/explode2', 'mob/warden/attack_impact_1'],
+    'boss_hurt': ['mob/polarbear/hurt1', 'mob/polarbear/hurt2', 'mob/enderdragon/hit1', 'mob/warden/hurt_1'],
+    'enrage': ['mob/wither/spawn'],
+    'boss_death': ['mob/enderdragon/end'],
+    'emerge': ['mob/warden/emerge'],
 }
-MUSIC = {'game': ['music/game/key', 'music/game/dry_hands', 'music/game/oxygene', 'music/game/wet_hands']}
+MUSIC = {'game': ['music/game/key', 'music/game/dry_hands', 'music/game/oxygene', 'music/game/wet_hands'],
+         'boss': ['music/game/end/boss']}   # C418 'Boss', trimmed (see TRIM)
+TRIM = {'music/game/end/boss': 180, 'mob/enderdragon/end': 6, 'ambient/weather/thunder1': 5, 'ambient/weather/thunder2': 5, 'ambient/weather/thunder3': 5, 'event/raid/raidhorn_01': 6, 'event/raid/raidhorn_02': 6, 'mob/wither/spawn': 5}   # seconds kept, with a fade-out
 
 
 def src(path):
@@ -54,7 +67,11 @@ def src(path):
 def mp3(path, rate, kbps):
     with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
         out = f.name
-    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', src(path), '-ac', '1', '-ar', str(rate), '-b:a', f'{kbps}k', out], check=True)
+    trim = []
+    if path in TRIM:
+        n = TRIM[path]
+        trim = ['-t', str(n), '-af', f'afade=t=out:st={max(0, n - 4)}:d=4']
+    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', src(path)] + trim + ['-ac', '1', '-ar', str(rate), '-b:a', f'{kbps}k', out], check=True)
     data = open(out, 'rb').read()
     os.unlink(out)
     return 'data:audio/mpeg;base64,' + base64.b64encode(data).decode()

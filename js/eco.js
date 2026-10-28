@@ -91,7 +91,7 @@
     (G.entities || []).forEach((e) => {
       if (!alive(e)) return;
       out.total++;
-      if (e.isPlayer || e.sp === 'decoy' || e.tutorialProp) return;   // tutorial extras are not part of the populations
+      if (e.isPlayer || e.boss || e.sp === 'decoy' || e.tutorialProp) return;   // tutorial extras are not part of the populations
       if (e.sp === 'carcass') { out.carcass.push(e); return; }      // kills left by the player's bites; not part of any population
       if (e.sp === 'carrion') { out.carrion.push(e); return; }
       (out.bySp[e.sp] = out.bySp[e.sp] || []).push(e);
