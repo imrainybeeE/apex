@@ -1355,22 +1355,27 @@
         ctx.beginPath(); ctx.arc(m[0], m[1], rr, a - 1.1, a + 1.1); ctx.stroke();
       }
       ctx.restore();
-    } else if (c.kind === 'spray') {
+    } else if (c.kind === 'spray') {   // a cone of spray: solid enough to read on any ground, fading as it drifts
       const a = e.angle || c.a, reach = r * 3;
-      const f = Math.pow(1 - k, 1.4);
+      const f = Math.pow(1 - k, 0.9);
       const m = mouthOf(e, 0.7);
+      const musk = e.sp === 'snake';   // garter snake musk: ochre, so it shows on green grass
+      const rad = reach * (0.55 + 0.45 * Math.min(1, k * 3)), half = Math.PI / 4;
       ctx.save();
       ctx.translate(m[0], m[1]);
       ctx.rotate(a);
-      const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, reach);
-      const musk = e.sp === 'snake';   // garter snake musk: ochre, so it shows on green grass
-      gr.addColorStop(0, rgba(musk ? '#F2DC8A' : '#E9F6C8', (musk ? 0.7 : 0.5) * f));
-      gr.addColorStop(1, rgba(musk ? '#B8862E' : COL.grow, 0));
+      const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, rad);
+      gr.addColorStop(0, rgba(musk ? '#F6E39A' : '#F2FBD8', 0.85 * f));
+      gr.addColorStop(0.6, rgba(musk ? '#D9B44E' : '#B9E07A', 0.5 * f));
+      gr.addColorStop(1, rgba(musk ? '#B8862E' : COL.grow, 0.15 * f));
       ctx.fillStyle = gr;
-      ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, reach * (0.55 + 0.45 * Math.min(1, k * 3)), -Math.PI / 4, Math.PI / 4); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = rgba(COL.bone, 0.5 * f);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, rad, -half, half); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = rgba(COL.soil, 0.35 * f);
+      ctx.lineWidth = Math.max(1.6 / z, r * 0.05) + 2 / z;
+      ctx.beginPath(); ctx.arc(0, 0, rad, -half, half); ctx.stroke();
+      ctx.strokeStyle = rgba(COL.bone, 0.85 * f);
       ctx.lineWidth = Math.max(1.6 / z, r * 0.05);
-      ctx.beginPath(); ctx.arc(0, 0, reach * (0.55 + 0.45 * Math.min(1, k * 3)), -Math.PI / 4, Math.PI / 4); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, rad, -half, half); ctx.stroke();
       ctx.restore();
     } else if (c.kind === 'horn') {
       const a = e.angle || c.a, ca = Math.cos(a), sa = Math.sin(a);
