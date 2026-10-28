@@ -2185,6 +2185,24 @@ function iceCreek(world, rng) {
     g.strokeStyle = style; g.lineCap = 'round';
     for (let i = 0; i < N; i++) { g.lineWidth = (wf(i) + wf(i + 1)) / 2 * kk; g.beginPath(); g.moveTo(pts[i][0] * kk, pts[i][1] * kk); g.lineTo(pts[i + 1][0] * kk, pts[i + 1][1] * kk); g.stroke(); }
   };
+  // point on lane o(i) at fractional path index f
+  const LP = (f, o, kk) => { f = clamp(f, 0, N - 1e-6); const i = Math.floor(f), t = f - i, a = P(i, o(i), kk), b = P(i + 1, o(i + 1), kk); return [lerp(a[0], b[0], t), lerp(a[1], b[1], t)]; };
+  const IPU = N / (world + 160);                                   // path indices per world unit
+  // Irregular dashes along a lane: random lengths and gaps, bunched by slow noise so some stretches are busy and others calm.
+  const dashes = (g, kk, o, sp, ns) => {
+    let f = rng.range(0, 1.2);
+    while (f < N - 0.3) {
+      const busy = vnoise(f * 0.28, ns, 77), len = lerp(sp.len[0], sp.len[1], Math.pow(rng(), 1.7)) * IPU;
+      const gap = lerp(sp.gap[0], sp.gap[1], Math.pow(rng(), 1.3)) * IPU * lerp(2.2, 0.45, busy), f1 = Math.min(N - 1e-6, f + len);
+      if (rng() < lerp(0.25, 0.95, busy)) {
+        g.strokeStyle = sp.col(); g.lineWidth = lerp(sp.lw[0], sp.lw[1], rng()) * kk; g.beginPath();
+        const n = Math.max(2, Math.ceil((f1 - f) / 0.2));
+        for (let m = 0; m <= n; m++) { const q = LP(f + (f1 - f) * m / n, o, kk); m ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }
+        g.stroke();
+      }
+      f = f1 + gap;
+    }
+  };
   const out = mk(S, S), og = g2(out), wat = mk(S, S), wg = g2(wat);
   for (const [scale, col, blur, a] of [[1.9, '#d8e6ee', 16, 0.22], [1.4, '#e6f0f5', 6, 0.32]]) { // frosted banks
     const hz = mk(S, S); ribbon(g2(hz), k, (i) => pts[i][2] * scale, col);
@@ -2218,25 +2236,36 @@ function iceCreek(world, rng) {
   wg.globalCompositeOperation = 'source-over';
   // 2. open water: stacked ribbons darken toward the middle of the channel
   for (const [sc, col] of [[1.0, '#3d7ea0'], [0.88, '#2f6a8c'], [0.66, '#225673'], [0.4, '#173f58']]) ribbon(wg, k, (i) => pts[i][2] * fw(i) * sc, col);
-  const wob = [];
-  for (let i = 0; i <= N; i++) wob.push(rng.range(0, TAU));
-  wg.save(); // dark current streaks and soft eddies inside the water
+  wg.save(); // dark current streaks inside the water
   wg.lineCap = 'round';
-  for (const o of [-0.22, -0.08, 0.1, 0.24]) {
-    wg.strokeStyle = 'rgba(8,28,44,.5)'; wg.lineWidth = 2.2 * k; wg.setLineDash([rng.range(40, 90) * k, rng.range(18, 50) * k]);
-    PL(wg, k, (i) => o * fw(i) + Math.sin(i * 0.5 + wob[i % 8]) * 0.03, 0, N); wg.stroke(); wg.setLineDash([]);
-  }
+  [-0.3, -0.16, -0.03, 0.1, 0.24, 0.35].forEach((lane, li) => dashes(wg, k, (i) => lane * fw(i) + Math.sin(i * 0.5 + li * 2) * 0.03, { len: [14, 80], gap: [10, 90], lw: [1.2, 3], col: () => `rgba(8,28,44,${(0.22 + rng() * 0.36).toFixed(2)})` }, li * 3.7));
   wg.restore();
-  // 3. ice lip: jagged plates and crystals overhanging the water on both sides, with a dark undercut
-  for (let i = 0; i <= N; i++) for (const sg of [-1, 1]) for (let q = 0; q < 2; q++) {
-    const j = Math.min(i + rng() , N - 1e-6), i0 = Math.floor(j), t = j - i0, o = sg * (fw(i0) * 0.5 - rng.range(0, 0.07));
-    const a0 = P(i0, o, k), a1 = P(i0 + 1, sg * (fw(i0 + 1) * 0.5), k), cx = lerp(a0[0], a1[0], t), cy = lerp(a0[1], a1[1], t);
-    const rr = rng.range(1.8, 5) * k, rot = rng.range(0, TAU), nv = rng.int(6, 9), poly = [];
-    for (let v = 0; v < nv; v++) { const ang = rot + v / nv * TAU, rv = rr * (v % 2 ? rng.range(0.7, 0.92) : rng.range(0.98, 1.2)); poly.push([cx + Math.cos(ang) * rv * 1.4, cy + Math.sin(ang) * rv]); }
-    for (const [dx, dy, col] of [[-nrm[i0][0] * sg * 1.4 * k, -nrm[i0][1] * sg * 1.4 * k, 'rgba(10,38,58,.5)'], [0, 0, rng() < 0.5 ? '#e9f4fa' : '#d4e6f0']]) {
-      wg.fillStyle = col; wg.beginPath(); poly.forEach((v, m) => (m ? wg.lineTo(v[0] + dx, v[1] + dy) : wg.moveTo(v[0] + dx, v[1] + dy))); wg.closePath(); wg.fill();
+  // 3. ice lip: a thin undercut line along the water's edge, then shards in uneven clusters with calm
+  // stretches of plain shelf between them; shard size, spacing and shape all vary.
+  for (const sg of [-1, 1]) {
+    const eo = (f) => sg * (fw(f) * 0.5 + (vnoise(f * 1.1, sg * 3 + 1, 41) - 0.5) * 0.05);
+    for (const [col, lw, d0] of [['rgba(10,38,58,.35)', 1.5, -0.022], ['rgba(232,244,251,.85)', 1.2, 0]]) {
+      wg.strokeStyle = col; wg.lineWidth = lw * k; wg.beginPath();
+      for (let f = 0; f <= N - 1e-6; f += 0.25) { const q = LP(f, (i) => eo(i) + sg * d0, k); f ? wg.lineTo(q[0], q[1]) : wg.moveTo(q[0], q[1]); }
+      wg.stroke();
     }
-    wg.strokeStyle = 'rgba(255,255,255,.35)'; wg.lineWidth = 0.4 * k; wg.beginPath(); poly.forEach((v, m) => (m ? wg.lineTo(v[0], v[1]) : wg.moveTo(v[0], v[1]))); wg.closePath(); wg.stroke();
+    const shard = (f, jo) => {
+      const c = LP(f, (i) => eo(i) + jo, k), a0 = LP(f - 0.15, (i) => eo(i), k), a1 = LP(f + 0.15, (i) => eo(i), k), tang = Math.atan2(a1[1] - a0[1], a1[0] - a0[0]);
+      const rr = (0.7 + 3.4 * Math.pow(rng(), 2.4)) * k, st = rng.range(1.3, 2.4), rot = tang + rng.range(-0.5, 0.5), nv = rng.int(5, 8), poly = [];
+      for (let v = 0; v < nv; v++) { const ang = v / nv * TAU, rv = rr * (v % 2 ? rng.range(0.65, 0.92) : rng.range(0.95, 1.25)), lx = Math.cos(ang) * rv * st, ly = Math.sin(ang) * rv; poly.push([c[0] + lx * Math.cos(rot) - ly * Math.sin(rot), c[1] + lx * Math.sin(rot) + ly * Math.cos(rot)]); }
+      const nx = a1[1] - a0[1], ny = a0[0] - a1[0], nl = Math.hypot(nx, ny) || 1;
+      for (const [dx, dy, fc] of [[-nx / nl * sg * 1.3 * k, -ny / nl * sg * 1.3 * k, 'rgba(10,38,58,.45)'], [0, 0, rng.pick(['#eef7fc', '#dcecf4', '#f7fbfe', '#cfe2ee'])]]) {
+        wg.fillStyle = fc; wg.beginPath(); poly.forEach((v, m) => (m ? wg.lineTo(v[0] + dx, v[1] + dy) : wg.moveTo(v[0] + dx, v[1] + dy))); wg.closePath(); wg.fill();
+      }
+    };
+    let f = rng.range(0, 1.5);
+    while (f < N - 0.5) {
+      const cl = vnoise(f * 0.42 + sg * 17, 9, 31);
+      if (cl < 0.3) { f += rng.range(0.8, 2.2); continue; }       // calm stretch: bare shelf edge
+      const cnt = cl > 0.55 ? rng.int(2, 7) : 1;
+      for (let c = 0; c < cnt; c++) shard(f + rng.range(-0.35, 0.35), rng.range(-0.04, 0.05));
+      f += lerp(0.15, 1.5, Math.pow(rng(), 1.5)) * (cnt > 1 ? 1.5 : 1);
+    }
   }
   // 4. stones in the current: wake and bow ring painted here, the snow-capped stone sprite is decor
   const rocks = [];
@@ -2246,44 +2275,70 @@ function iceCreek(world, rng) {
     rocks.push({ x: p[0], y: p[1], r, i });
     const dx = pts[i + 1][0] - pts[i][0], dy = pts[i + 1][1] - pts[i][1], dl = Math.hypot(dx, dy) || 1, ux = dx / dl, uy = dy / dl;
     wg.strokeStyle = 'rgba(232,246,252,.4)'; wg.lineWidth = 0.9 * k; wg.beginPath(); wg.ellipse(p[0] * k, p[1] * k, r * 1.35 * k, r * 1.15 * k, 0, 0, TAU); wg.stroke();
-    for (let j = 1; j <= 7; j++) { // foam wake trailing downstream
-      const wx = (p[0] + ux * r * (0.9 + j * 1.0) + rng.range(-1, 1)) * k, wy = (p[1] + uy * r * (0.9 + j * 1.0) + rng.range(-1, 1)) * k, wr = r * (0.7 - j * 0.07) * k;
-      wg.fillStyle = `rgba(236,248,254,${0.55 - j * 0.06})`; wg.beginPath(); wg.ellipse(wx, wy, wr * 1.3, wr * 0.75, Math.atan2(uy, ux), 0, TAU); wg.fill();
+    for (let j = 1; j <= 14; j++) { // foam wake trailing downstream
+      const wx = (p[0] + ux * r * (0.8 + j * 0.55) + rng.range(-1.2, 1.2)) * k, wy = (p[1] + uy * r * (0.8 + j * 0.55) + rng.range(-1.2, 1.2)) * k, wr = r * (0.62 - j * 0.035) * k;
+      wg.fillStyle = `rgba(236,248,254,${0.34 - j * 0.02})`; wg.beginPath(); wg.ellipse(wx, wy, wr * 1.3, wr * 0.75, Math.atan2(uy, ux), 0, TAU); wg.fill();
     }
   }
   og.drawImage(wat, 0, 0); wat.width = 0;
-  // 5. animated glints: two dash layers, offset half a period, crossfaded in drawCreek
-  const flows = [];
+  // 5. animated glints: two independent random streak layers, crossfaded in drawCreek
+  const flows = [], needTile = (size, pad) => (px, py, ts) => {
+    const sc = world / size, x0 = px * sc, y0 = py * sc, x1 = (px + ts) * sc, y1 = (py + ts) * sc;
+    for (const p of pts) if (Math.hypot(Math.max(x0 - p[0], 0, p[0] - x1), Math.max(y0 - p[1], 0, p[1] - y1)) < p[2] * pad + 30) return true;
+    return false;
+  };
   for (let L = 0; L < 2; L++) {
-    const fl = mk(SF, SF), fg = g2(fl), r2 = makeRng(rng.int(1, 9999)), lanes = [-0.3, -0.12, 0.06, 0.24, 0.38];
+    const fl = mk(SF, SF), fg = g2(fl);
     fg.lineCap = 'round';
-    lanes.forEach((o, li) => {
-      const d = (26 + li * 9) * kf, gp = (30 + li * 14) * kf;
-      for (const [col, lw, sh] of [['rgba(222,242,252,.55)', 1.5, 0], ['rgba(255,255,255,.7)', 0.7, -0.5]]) {
-        fg.strokeStyle = col; fg.lineWidth = lw * kf * 1.4; fg.setLineDash([d, gp]); fg.lineDashOffset = -L * (d + gp) / 2 - li * 17 * kf;
-        PL(fg, kf, (i) => o * fw(i) + Math.sin(i * 0.5 + li) * 0.025, 0, N); fg.save(); fg.translate(sh * kf, sh * kf); fg.stroke(); fg.restore();
-      }
-    });
-    fg.setLineDash([]);
-    for (let q = 0; q < 160; q++) { // glitter dots on the water
-      const i = r2.int(0, N), p = P(i, r2.range(-0.5, 0.5) * fw(i), kf);
-      fg.fillStyle = `rgba(240,252,255,${r2.range(0.3, 0.8)})`; fg.beginPath(); fg.arc(p[0], p[1], r2.range(0.5, 1.3), 0, TAU); fg.fill();
+    for (let li = 0; li < 8; li++) {
+      const lane = rng.range(-0.44, 0.44), ph4 = rng.range(0, TAU);
+      dashes(fg, kf, (i) => lane * fw(i) + Math.sin(i * 0.45 + ph4) * 0.04, { len: [8, 64], gap: [8, 80], lw: [0.9, 2.4], col: () => (rng() < 0.4 ? `rgba(255,255,255,${(0.4 + rng() * 0.4).toFixed(2)})` : `rgba(206,236,250,${(0.35 + rng() * 0.4).toFixed(2)})`) }, 50 + li * 5.3 + L * 31);
     }
-    flows.push(fl);
+    for (let q = 0; q < 140; q++) { // glitter dots on the water
+      const i = rng.int(0, N), p = P(i, rng.range(-0.5, 0.5) * fw(i), kf);
+      fg.fillStyle = `rgba(240,252,255,${rng.range(0.3, 0.8)})`; fg.beginPath(); fg.arc(p[0], p[1], rng.range(0.5, 1.3), 0, TAU); fg.fill();
+    }
+    flows.push(tileSplit(fl, 32, needTile(SF, 0.4))); fl.width = 0;   // glints only sit on the water: small tiles, tight cull
   }
+  const map = tileSplit(out, 16, needTile(S, 1.0)); out.width = 0;
   const d = (x, y) => { let best = 1e9; for (let i = 0; i <= N; i++) { const v = Math.hypot(x - pts[i][0], y - pts[i][1]) - pts[i][2] * 0.5; if (v < best) best = v; } return best; };
-  return { c: out, flows, pts, nrm, rocks, d, world, cam: { x: 0, y: 0, zoom: 1, shakeX: 0, shakeY: 0 } };
+  return { c: map, flows, pts, nrm, rocks, d, world, cam: { x: 0, y: 0, zoom: 1, shakeX: 0, shakeY: 0 } };
+}
+
+// Cut a big transparent map into n x n tiles and keep only those `need` says hold something, so the
+// mostly empty world-sized canvas costs neither memory nor fill rate.
+function tileSplit(src, n, need) {
+  const ts = src.width / n, tiles = new Array(n * n).fill(null);
+  for (let ty = 0; ty < n; ty++) for (let tx = 0; tx < n; tx++) {
+    if (!need(tx * ts, ty * ts, ts)) continue;
+    const c = mk(ts, ts); g2(c).drawImage(src, tx * ts, ty * ts, ts, ts, 0, 0, ts, ts); tiles[ty * n + tx] = c;
+  }
+  return { n, size: src.width, ts, tiles };
+}
+
+// Blit the tiles in view. Neighbouring tiles share exact edge coordinates, so they meet without seams.
+function drawTiles(ctx, cam, tm, world) {
+  const W = A.W, H = A.H, z = cam.zoom, D = A.DPR || 1, n = tm.n, tw = tm.ts * world / tm.size, v = viewRect(cam, 0);
+  const tx0 = clamp(Math.floor(v.x0 / tw), 0, n - 1), tx1 = clamp(Math.floor(v.x1 / tw), 0, n - 1), ty0 = clamp(Math.floor(v.y0 / tw), 0, n - 1), ty1 = clamp(Math.floor(v.y1 / tw), 0, n - 1);
+  const ox = W / 2 - cam.x * z + cam.shakeX, oy = H / 2 - cam.y * z + cam.shakeY;
+  ctx.imageSmoothingEnabled = true;
+  for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+    const t = tm.tiles[ty * n + tx]; if (!t) continue;
+    const x0 = tx * tw * z + ox, x1 = (tx + 1) * tw * z + ox, y0 = ty * tw * z + oy, y1 = (ty + 1) * tw * z + oy;
+    ctx.drawImage(t, x0, y0, x1 - x0, y1 - y0);
+  }
 }
 
 // Static creek map, then the two glint layers sliding and crossfading so the water seems to flow.
 function drawCreek(ctx, cam, t, st) {
   const cr = st.creek, c2 = cr.cam;
-  drawWorldMap(ctx, cam, cr.c, st.world);
+  drawTiles(ctx, cam, cr.c, st.world);
   if (World.quality < 1) return;                                   // glints are the first thing dropped when frames run slow
   c2.zoom = cam.zoom; c2.shakeX = cam.shakeX; c2.shakeY = cam.shakeY; c2.y = cam.y;
-  const a = 0.5 + 0.5 * Math.sin(t * 1.5);
-  ctx.globalAlpha = a * 0.9; c2.x = cam.x - 2.5 * Math.sin(t * 0.8); drawWorldMap(ctx, c2, cr.flows[0], st.world);
-  ctx.globalAlpha = (1 - a) * 0.9; c2.x = cam.x + 2.5 * Math.sin(t * 0.8); drawWorldMap(ctx, c2, cr.flows[1], st.world);
+  // flat-topped crossfade: most of the time only one layer is on screen, which halves the fill cost
+  const a = clamp((Math.sin(t * 1.0) * 1.8 + 1) / 2, 0, 1), sl = 2.5 * Math.sin(t * 0.8);
+  if (a > 0.02) { ctx.globalAlpha = a * 0.9; c2.x = cam.x - sl; drawTiles(ctx, c2, cr.flows[0], st.world); }
+  if (a < 0.98) { ctx.globalAlpha = (1 - a) * 0.9; c2.x = cam.x + sl; drawTiles(ctx, c2, cr.flows[1], st.world); }
   ctx.globalAlpha = 1;
 }
 
