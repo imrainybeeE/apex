@@ -87,10 +87,122 @@
     }
   }
 
-  function beakShape(K, ctx, kind, bl, hr, P, open, headX) {
+  // ---- resting-bird detail: closed tail fan, folded layered wings, head markings --------------
+  const nz = (v, d) => (v === undefined ? d : v);
+  function ell(ctx, x, y, rx, ry, rot) { ctx.moveTo(x + Math.cos(rot) * rx, y + Math.sin(rot) * rx); ctx.ellipse(x, y, rx, ry, rot, 0, TAU); }
+  // pointed lens from (x0,y0) to (x1,y1), half-width w, widest at fraction f along it (many can share one path)
+  function leaf(ctx, x0, y0, x1, y1, w, f) {
+    const dx = x1 - x0, dy = y1 - y0, d = Math.hypot(dx, dy) || 1, nx = -dy / d * w * 2, ny = dx / d * w * 2;
+    const mx = x0 + dx * f, my = y0 + dy * f;
+    ctx.moveTo(x0, y0); ctx.quadraticCurveTo(mx + nx, my + ny, x1, y1); ctx.quadraticCurveTo(mx - nx, my - ny, x0, y0);
+  }
+
+  // Tail seen from above: one filled fan of feathers that opens with `spread`, with the species' bars,
+  // subterminal band, pale tip or white outer feathers (look.rest). Origin is the tail root; it points -x.
+  function tailFan(ctx, K, P, T, R, rootX, len, w0, spread, sway, low) {
+    const ang = lerp(nz(R.fanRest, 0.2), nz(R.fanOpen, 0.46), spread), n = R.tailN || 7;
+    const w1 = w0 + Math.sin(ang) * len * 0.95, base = T(R.tail || K.mix(P.body, P.dark, 0.25));
+    const path = () => {
+      ctx.beginPath(); ctx.moveTo(w0 * 0.2, -w0 * 0.8);
+      ctx.lineTo(-len * 0.5, -(w0 + w1) * 0.5);
+      ctx.quadraticCurveTo(-len * 0.96, -w1 * 1.08, -len * 0.99, -w1 * nz(R.tailEnd, 0.35) * 0.6);
+      ctx.quadraticCurveTo(-len * 1.12, 0, -len * 0.99, w1 * nz(R.tailEnd, 0.35) * 0.6);
+      ctx.quadraticCurveTo(-len * 0.96, w1 * 1.08, -len * 0.5, (w0 + w1) * 0.5);
+      ctx.lineTo(w0 * 0.2, w0 * 0.8); ctx.closePath();
+    };
+    ctx.save(); ctx.translate(rootX, 0); ctx.rotate(sway);
+    path(); ctx.fillStyle = base; ctx.fill();
+    if (!low) {
+      ctx.save(); path(); ctx.clip();
+      ctx.lineCap = 'butt';
+      if (R.tailWhite) {                                           // white outer feathers
+        ctx.strokeStyle = T(R.tailWhite); ctx.lineWidth = w1 * 0.7;
+        ctx.beginPath(); ctx.moveTo(0, -w0 * 1.3); ctx.lineTo(-len, -w1 * 1.45); ctx.moveTo(0, w0 * 1.3); ctx.lineTo(-len, w1 * 1.45); ctx.stroke();
+      }
+      ctx.strokeStyle = K.mix(base, P.dark, 0.5); ctx.globalAlpha = 0.5; ctx.lineWidth = Math.max(0.5, w1 * 0.05); // feather shafts
+      ctx.beginPath();
+      for (let i = 0; i < n; i++) { const f = (i / (n - 1)) * 2 - 1, a = f * ang * 0.95; ctx.moveTo(0, 0); ctx.lineTo(-Math.cos(a) * len * 1.06, Math.sin(a) * len * 1.06); }
+      ctx.stroke(); ctx.globalAlpha = 1;
+      const bc = T(R.tailBar || P.dark);
+      ctx.strokeStyle = bc;                                          // thin bars across the tail
+      ctx.lineWidth = Math.max(0.6, len * 0.045); ctx.beginPath();
+      for (let j = 0; j < (R.tailBars || 0); j++) { const x = -len * (0.28 + j * (0.5 / Math.max(1, R.tailBars))); ctx.moveTo(x, -w1 * 1.3); ctx.quadraticCurveTo(x - len * 0.1, 0, x, w1 * 1.3); }
+      ctx.stroke();
+      if (R.tailBand) {                                              // broad dark subterminal band
+        ctx.lineWidth = len * 0.16; ctx.beginPath(); ctx.moveTo(-len * 0.78, -w1 * 1.3); ctx.quadraticCurveTo(-len * 0.88, 0, -len * 0.78, w1 * 1.3); ctx.stroke();
+      }
+      if (R.tailTip) {                                               // pale tip
+        ctx.strokeStyle = T(R.tailTip); ctx.lineWidth = len * 0.1; ctx.beginPath(); ctx.moveTo(-len * 0.97, -w1 * 1.3); ctx.quadraticCurveTo(-len * 1.06, 0, -len * 0.97, w1 * 1.3); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    path(); K.shade(ctx, -len * 0.5, 0, w1, 0.9); K.rim(ctx, P.bodyLo, 1);
+    ctx.restore();
+  }
+
+  // A folded wing seen from above: primaries under, then the wing's covert rows and scapulars as
+  // overlapping edged feathers. xw = wrist (front), xt = where the primary tips end.
+  function restWing(ctx, K, P, T, R, sg, xw, xt, bw, low) {
+    const Lw = xw - xt, yR = sg * bw * 0.7, yT = sg * bw * 0.28;
+    const dark = T(K.mix(P.body, P.dark, 0.62)), mid = T(K.mix(P.body, P.dark, 0.22));
+    const lite = T(R.edge || K.mix(P.body, P.belly, 0.6)), tipC = R.primCol ? T(R.primCol) : dark;
+    const ax = (u) => lerp(xw, xt, u), ay = (u) => lerp(yR, yT, u);
+    const xb = xt + Lw * 0.3;
+    ctx.lineJoin = 'round';
+    // primaries: five long dark feathers, only the tips clear the tertials
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) { const f = i / 4; leaf(ctx, ax(0.34), ay(0.3) + sg * bw * (0.18 - f * 0.28), xt + Lw * 0.13 * f, yT + sg * bw * (0.2 - f * 0.34), bw * 0.15, 0.4); }
+    ctx.fillStyle = tipC; ctx.fill();
+    if (!low) { ctx.strokeStyle = lite; ctx.globalAlpha = 0.5; ctx.lineWidth = Math.max(0.5, bw * 0.03); ctx.stroke(); ctx.globalAlpha = 1; }
+    // wing body: rounded shoulder, leading edge, pointed back
+    const base = () => {
+      ctx.beginPath(); ctx.moveTo(xw, sg * bw * 0.32);
+      ctx.bezierCurveTo(xw + bw * 0.22, sg * bw * 0.5, xw + bw * 0.14, sg * bw * 1.02, xw - Lw * 0.22, sg * bw * 1.04);
+      ctx.bezierCurveTo(xw - Lw * 0.6, sg * bw * 1.06, xb + Lw * 0.06, sg * bw * 0.62, xb, sg * bw * 0.3);
+      ctx.bezierCurveTo(xb + Lw * 0.1, sg * bw * 0.14, xw - Lw * 0.4, sg * bw * 0.06, xw, sg * bw * 0.32);
+      ctx.closePath();
+    };
+    base(); ctx.fillStyle = T(P.body); ctx.fill();
+    if (!low) {
+      ctx.save(); base(); ctx.clip();
+      // coverts: three rows of scalloped feathers, small at the leading edge, big and pale-edged inside
+      const rows = [[0.62, 0.15, 0.3, 6, 0], [0.34, 0.17, 0.34, 5, 0.5], [0.06, 0.19, 0.4, 4, 0.2]];
+      for (let k = 0; k < 3; k++) {
+        const [off, hw, ln, cnt, ph] = rows[k];
+        ctx.beginPath();
+        for (let i = 0; i < cnt; i++) {
+          const u = 0.02 + (i + ph) / cnt * 0.64, x = ax(u), y = ay(u) + sg * bw * (off - 0.1 + (R.coverShift || 0));
+          leaf(ctx, x + Lw * 0.04, y, x - Lw * ln, y - sg * bw * 0.05, bw * hw, 0.3);
+        }
+        ctx.fillStyle = k === 0 ? mid : K.mix(T(P.body), lite, 0.08 + k * 0.07); ctx.fill();
+        ctx.strokeStyle = lite; ctx.globalAlpha = 0.55 + k * 0.12; ctx.lineWidth = Math.max(0.5, bw * 0.05); ctx.stroke(); ctx.globalAlpha = 1;
+        ctx.strokeStyle = dark; ctx.globalAlpha = 0.28; ctx.lineWidth = Math.max(0.4, bw * 0.025); ctx.stroke(); ctx.globalAlpha = 1;
+      }
+      if (R.mottle) {                                                // barred, mottled upperparts
+        ctx.lineCap = 'round'; ctx.strokeStyle = dark; ctx.globalAlpha = 0.55; ctx.lineWidth = Math.max(0.5, bw * 0.07); ctx.beginPath();
+        for (let i = 0; i < 7; i++) { const u = 0.05 + i * 0.1, x = ax(u), y0 = ay(u); ctx.moveTo(x, y0 + sg * bw * 0.52); ctx.quadraticCurveTo(x - Lw * 0.05, y0 + sg * bw * 0.1, x, y0 - sg * bw * 0.3); }
+        ctx.stroke(); ctx.globalAlpha = 0.7; ctx.fillStyle = lite; ctx.beginPath();
+        for (let i = 0; i < 9; i++) { const u = 0.06 + (i * 0.37 % 0.6), y = ay(u) + sg * bw * ((i * 0.53 % 1) - 0.5) * 0.9; ell(ctx, ax(u), y, bw * 0.06, bw * 0.045, 0.6); }
+        ctx.fill(); ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+      // scapulars along the back edge: long pointed feathers over the wing root
+      ctx.beginPath();
+      for (let i = 0; i < 3; i++) leaf(ctx, ax(0.06 + i * 0.08), sg * bw * (0.2 - i * 0.02), ax(0.6 + i * 0.12), sg * bw * (0.1 + i * 0.07), bw * 0.15, 0.4);
+      ctx.fillStyle = mid; ctx.fill(); ctx.strokeStyle = lite; ctx.globalAlpha = 0.6; ctx.lineWidth = Math.max(0.5, bw * 0.04); ctx.stroke(); ctx.globalAlpha = 1;
+      if (R.scapPale) {                                              // pale scapular braces
+        ctx.beginPath();
+        for (let i = 0; i < 3; i++) leaf(ctx, ax(0.1 + i * 0.08), sg * bw * (0.2 - i * 0.02), ax(0.48 + i * 0.1), sg * bw * (0.11 + i * 0.07), bw * 0.05, 0.4);
+        ctx.fillStyle = T(R.scapPale); ctx.globalAlpha = 0.85; ctx.fill(); ctx.globalAlpha = 1;
+      }
+    }
+    base(); K.shade(ctx, (xw + xt) / 2, sg * bw * 0.5, bw * 0.9, 0.9); K.rim(ctx, P.bodyLo, Math.max(0.7, bw * 0.07));
+  }
+
+  function beakShape(K, ctx, kind, bl, hr, P, open, headX, beakCol) {
     // two mandibles that split left/right when open; drawn pointing +x from the head front
     const baseW = kind === 'short' ? hr * 0.55 : kind === 'hooked' ? hr * 0.62 : kind === 'flat' ? hr * 0.62 : hr * 0.52;
-    const col = P.accent;
+    const col = beakCol || P.accent;
     for (let sgn = -1; sgn <= 1; sgn += 2) {
       ctx.save();
       ctx.translate(headX + hr * 0.7, 0);
@@ -157,7 +269,9 @@
     // tail (behind everything)
     const tlen = r * (look.tailLen === undefined ? 0.5 : look.tailLen);
     const tailK = look.tail || 'fan';
-    tailFeathers(ctx, K, P, tailK, tlen + bw * 0.5, rear + bw * 0.5, Math.max(bw * 0.35, tlen * 0.3), turn * 0.45 + Math.sin(t * 1.6 + sd) * 0.04);
+    const R = look.rest || {}, T = o.hurt > 0.02 ? (c) => K.mix(c, '#ffffff', o.hurt * 0.7) : (c) => c;
+    if (tailK === 'forked' || tailK === 'long') tailFeathers(ctx, K, P, tailK, tlen + bw * 0.5, rear + bw * 0.5, Math.max(bw * 0.35, tlen * 0.3), turn * 0.45 + Math.sin(t * 1.6 + sd) * 0.04);
+    else tailFan(ctx, K, P, T, R, rear + bw * 0.55, tlen * nz(R.tailScale, 1.35) + bw * 0.6, Math.max(bw * 0.32, tlen * 0.22), spread, turn * 0.45 + Math.sin(t * 1.6 + sd) * 0.04, S.low);
 
     // legs: walk when grounded, trail straight back in flight
     if (look.legs) {
@@ -209,6 +323,16 @@
       ctx.restore();
     }
     K.gloss(ctx, (rear + front) / 2 + S.lx * bw * 0.2, S.ly * bw * 0.45, (front - rear) * 0.28, bw * 0.12, 0, 1);
+    if (R.breastCol && spread < 0.6) {                               // coloured breast with a dark chevron (meadowlark)
+      ctx.save(); K.tube(ctx, torso, 1, 0, 1, 1); ctx.clip();
+      ctx.globalAlpha = 1 - spread / 0.6;
+      ctx.fillStyle = T(R.breastCol); ctx.beginPath(); ell(ctx, front - bw * 0.2, 0, bw * 1.05, bw * 1.1, 0); ctx.fill();
+      if (!S.low) {
+        ctx.strokeStyle = T(R.vee || P.accent); ctx.lineWidth = Math.max(1, bw * 0.24); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath(); ctx.moveTo(front - bw * 0.2, -bw * 0.6); ctx.lineTo(front - bw * 0.78, 0); ctx.lineTo(front - bw * 0.2, bw * 0.6); ctx.stroke();
+      }
+      ctx.restore();
+    }
 
     // wings: folded blade <-> spread fan
     const flapRate = (look.flapRate || 9) * (0.7 + 0.5 * clamp(o.speed / (r * 6), 0, 1));
@@ -217,8 +341,13 @@
     const span = r * (look.span || 1.8) * (o.dive ? 0.6 : 1);
     const foldLen = (front - rear) * 0.95;
     const shoulderX = front * 0.78 + rear * 0.22;
-    for (let sgn = -1; sgn <= 1; sgn += 2) {
-      drawWing(ctx, K, P, o, sgn, shoulderX, sgn * bw * lerp(0.62, 0.5, spread), spread, th, look.wing || 'long', span, foldLen);
+    if (spread < 0.25) {                                            // resting: layered folded wings
+      const xw = Math.min(shoulderX + foldLen * 0.1, front - bw * nz(R.breast, 0.3)), xt = rear - tlen * nz(R.wingTip, 0.2);
+      for (let sgn = -1; sgn <= 1; sgn += 2) restWing(ctx, K, P, T, R, sgn, xw, xt, bw, S.low);
+    } else {
+      for (let sgn = -1; sgn <= 1; sgn += 2) {
+        drawWing(ctx, K, P, o, sgn, shoulderX, sgn * bw * lerp(0.62, 0.5, spread), spread, th, look.wing || 'long', span, foldLen);
+      }
     }
 
     // head
@@ -230,11 +359,42 @@
       ctx.fillStyle = P.belly; K.circ(ctx, headX + headR * 0.2, 0, headR * 1.55); ctx.fill();
       K.rim(ctx, P.bodyLo, Math.max(1, r * 0.04));
     }
+    if (look.head === 'grouse' && !S.low) {                           // dark neck ruff either side of the head
+      ctx.fillStyle = T('#2c2118'); ctx.beginPath();
+      for (let sgn = -1; sgn <= 1; sgn += 2) { leaf(ctx, headX + headR * 0.1, sgn * headR * 0.6, headX - headR * 1.7, sgn * headR * 1.7, headR * 0.5, 0.4); leaf(ctx, headX - headR * 0.2, sgn * headR * 0.7, headX - headR * 1.9, sgn * headR * 0.95, headR * 0.4, 0.4); }
+      ctx.fill();
+    }
     K.circ(ctx, headX, 0, headR); K.fillShaded(ctx, look.headCol === 'belly' ? P.belly : P.body, headX, 0, headR, 1);
     K.rim(ctx, P.bodyLo, Math.max(1, r * 0.04));
+    if (look.head && !S.low) {
+      ctx.save(); K.circ(ctx, headX, 0, headR); ctx.clip(); ctx.lineCap = 'round';
+      if (look.head === 'hawk') {                                    // dark cap, heavy brow, pale cheek flecks
+        ctx.fillStyle = T(K.mix(P.body, P.dark, 0.5)); ctx.globalAlpha = 0.7; ctx.beginPath(); ell(ctx, headX - headR * 0.25, 0, headR * 0.85, headR * 0.62, 0); ctx.fill();
+        ctx.globalAlpha = 1; ctx.strokeStyle = T(P.dark); ctx.lineWidth = headR * 0.26;
+        for (let sgn = -1; sgn <= 1; sgn += 2) { ctx.beginPath(); ctx.moveTo(headX + headR * 0.7, sgn * headR * 0.28); ctx.quadraticCurveTo(headX + headR * 0.3, sgn * headR * 0.4, headX - headR * 0.2, sgn * headR * 0.42); ctx.stroke(); }
+        ctx.fillStyle = T(R.edge || P.belly); ctx.globalAlpha = 0.6; ctx.beginPath();
+        for (let sgn = -1; sgn <= 1; sgn += 2) for (let k = 0; k < 3; k++) ell(ctx, headX - headR * (0.1 + k * 0.28), sgn * headR * (0.78 - k * 0.1), headR * 0.12, headR * 0.06, 0.5 * sgn);
+        ctx.fill(); ctx.globalAlpha = 1;
+      } else if (look.head === 'lark') {                             // striped crown, eye-stripe, yellow lores
+        ctx.strokeStyle = T(P.accent); ctx.lineWidth = headR * 0.2;
+        ctx.beginPath(); for (let sgn = -1; sgn <= 1; sgn += 2) { ctx.moveTo(headX + headR * 0.5, sgn * headR * 0.3); ctx.lineTo(headX - headR * 0.9, sgn * headR * 0.3); } ctx.stroke();
+        ctx.strokeStyle = T('#e8dcbc'); ctx.lineWidth = headR * 0.12; ctx.beginPath(); ctx.moveTo(headX + headR * 0.5, 0); ctx.lineTo(headX - headR * 0.9, 0); ctx.stroke();
+        ctx.strokeStyle = T(P.accent); ctx.lineWidth = headR * 0.16; ctx.beginPath(); for (let sgn = -1; sgn <= 1; sgn += 2) { ctx.moveTo(headX + headR * 0.45, sgn * headR * 0.62); ctx.lineTo(headX - headR * 0.8, sgn * headR * 0.72); } ctx.stroke();
+        ctx.fillStyle = T(R.breastCol || '#f2c430'); ctx.beginPath(); for (let sgn = -1; sgn <= 1; sgn += 2) ell(ctx, headX + headR * 0.62, sgn * headR * 0.42, headR * 0.26, headR * 0.17, 0); ctx.fill();
+      } else if (look.head === 'grouse') {                           // mottled head
+        ctx.fillStyle = T(P.dark); ctx.globalAlpha = 0.6; ctx.beginPath();
+        for (let k = 0; k < 7; k++) ell(ctx, headX + headR * (0.3 - k * 0.2), headR * ((k * 0.61 % 1) - 0.5) * 1.3, headR * 0.12, headR * 0.06, k);
+        ctx.fill(); ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    }
     K.gloss(ctx, headX + S.lx * headR * 0.3, S.ly * headR * 0.35, headR * 0.4, headR * 0.12, 0, 1);
     const open = Math.max(o.bite, o.stretch * 0.5);
-    beakShape(K, ctx, look.beak || 'dagger', bl, headR, P, open, headX);
+    beakShape(K, ctx, look.beak || 'dagger', bl, headR, P, open, headX, look.beakCol);
+    if (look.head === 'hawk' && !S.low) {                            // yellow cere at the beak base
+      ctx.fillStyle = T('#e6c23c'); ctx.beginPath(); ell(ctx, headX + headR * 0.78, 0, headR * 0.2, headR * 0.34, 0); ctx.fill();
+      ctx.fillStyle = 'rgba(40,25,5,.6)'; for (let sgn = -1; sgn <= 1; sgn += 2) { K.circ(ctx, headX + headR * 0.82, sgn * headR * 0.15, Math.max(0.5, headR * 0.06)); ctx.fill(); }
+    }
     // eyes
     const er = Math.max(headR * 0.4, r * 0.06) * (look.eye || 1);
     const ex = headX + headR * (look.disk ? 0.55 : 0.28), ey = headR * (look.disk ? 0.75 : 0.62);
@@ -434,16 +594,22 @@
     hawk: {
       plan: 'bird', habitat: 'air', len: 1.5, wid: 0.62, headR: 0.3, beak: 'hooked', beakLen: 0.32, neck: 0.4, neckS: 0.3,
       span: 2.6, wing: 'broad', feathers: 9, flapRate: 4, tail: 'fan', tailLen: 0.55, legs: 0, marks: 'streaks', eye: 0.8,
+      head: 'hawk', beakCol: '#4a4e55',
+      rest: { tail: '#b8481e', tailBars: 3, tailBar: '#5a2210', tailBand: true, tailTip: '#efe0c8', tailEnd: 0.4, tailScale: 1.9, wingTip: 0.22, edge: '#dcc09a', primCol: '#33241a', scapPale: '#ecd9b6', fanRest: 0.24 },
       pal: { body: '#7a5236', belly: '#efe4d2', accent: '#c4552a', dark: '#2a1a10', eye: '#e0b040' },
     },
     songbird: {
       plan: 'bird', habitat: 'air', len: 1.2, wid: 0.6, headR: 0.32, beak: 'dagger', beakLen: 0.38, neck: 0.3, neckS: 0.2,
       span: 1.7, wing: 'round', feathers: 7, flapRate: 11, tail: 'short', tailLen: 0.5, legs: 0, marks: 'streaks', eye: 0.85,
+      head: 'lark', beakCol: '#8a8576',
+      rest: { tail: '#7a6444', tailWhite: '#f4f1e6', breastCol: '#f6c928', vee: '#1a1612', edge: '#e0cfa4', primCol: '#4a3a26', wingTip: 0.15, breast: 0.7, tailEnd: 0.45, tailScale: 1.5, mottle: true },
       pal: { body: '#8a6d48', belly: '#f2c430', accent: '#1e1a14', dark: '#2a1e12', eye: '#100a06' },
     },
     grouse: {
       plan: 'bird', habitat: 'land', len: 1.3, wid: 0.78, headR: 0.3, beak: 'short', beakLen: 0.2, neck: 0.3, neckS: 0.2,
       span: 1.8, wing: 'round', feathers: 7, flapRate: 9, tail: 'fan', tailLen: 0.6, legs: 0, marks: 'bars', crest: 'tuft', eye: 0.8,
+      head: 'grouse', beakCol: '#3a2e22',
+      rest: { tail: '#8a6a48', tailBars: 5, tailBar: '#3a2a1c', tailBand: true, tailTip: '#cfc3ae', tailN: 9, tailEnd: 0.75, tailScale: 1.7, fanRest: 0.42, fanOpen: 0.7, wingTip: 0.1, edge: '#d8c4a2', primCol: '#4a3a2a', mottle: true, coverShift: 0.02 },
       pal: { body: '#7c6248', belly: '#d8c4a2', accent: '#3a2a1c', dark: '#241a10', eye: '#140c06' },
     },
     tadpole: {

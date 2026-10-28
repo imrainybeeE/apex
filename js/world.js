@@ -1898,27 +1898,65 @@ function makePineCone(rng) {
 }
 
 // ---- winter: snow drifts, frozen puddles, frost crystals, dry grass --------
+// Wind-sculpted drift: a few overlapping dunes (long gentle windward tail, short steep lee face, lobed
+// outline) built as a height field and lit from the top-left, so crests are bright and the lee is blue.
+// Rendered once per sprite with its own seeded noise, so it is deterministic and never flickers.
 function makeSnowDrift(rng, R) {
-  const rx = R * rng.range(0.9, 1.15), ry = R * rng.range(0.55, 0.8);
-  const s = sprite(rx * 2 + 14, ry * 2 + 14, 4, (g) => {
-    const seed = rng.int(1, 900000), path = () => blobPath(g, 0, 0, rx, ry, makeRng(seed), 13, 0.42);
-    path();
-    const gr = g.createLinearGradient(-rx * 0.6, -ry, rx * 0.6, ry);
-    gr.addColorStop(0, '#f6fafc'); gr.addColorStop(0.55, '#dbe7ee'); gr.addColorStop(1, '#a6bbcc');
-    g.fillStyle = gr; g.fill();
-    g.save(); g.clip();
-    for (let i = 0; i < 10; i++) { g.fillStyle = `rgba(104,138,176,${rng.range(0.06, 0.14)})`; g.beginPath(); g.ellipse(rng.range(0, rx * 0.9), rng.range(-ry * 0.2, ry * 0.9), rng.range(rx * 0.15, rx * 0.45), rng.range(ry * 0.1, ry * 0.3), rng.range(0, 3), 0, TAU); g.fill(); }
-    for (let k = 0; k < 4; k++) { // wind ripples
-      const y = rng.range(-ry * 0.6, ry * 0.6), x = rng.range(-rx * 0.5, rx * 0.2), w = rx * rng.range(0.35, 0.7);
-      g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 0.6; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + w * 0.5, y - 2, x + w, y + 0.5); g.stroke();
-      g.strokeStyle = 'rgba(110,146,184,.3)'; g.lineWidth = 0.5; g.beginPath(); g.moveTo(x, y + 1.3); g.quadraticCurveTo(x + w * 0.5, y - 0.7, x + w, y + 1.8); g.stroke();
+  const rx = R * rng.range(1.1, 1.35), ry = R * rng.range(0.5, 0.68), seed = rng.int(1, 900000);
+  const PPU = 4, wU = rx * 2 + 12, hU = ry * 2 + 12;
+  const w = Math.round(wU * PPU), h = Math.round(hU * PPU), H = new Float32Array(w * h);
+  const dunes = [{ cx: 0, cy: 0, a: rx * 0.9, b: ry * 0.92, ph: rng.range(0, TAU), rot: rng.range(-0.18, 0.18), hh: 1, crest: rng.range(0.25, 0.5) }];
+  for (let i = rng.int(1, 3); i-- > 0;) {
+    const s = rng.range(0.4, 0.62);
+    dunes.push({ cx: rng.range(-0.55, 0.55) * rx, cy: rng.range(-0.5, 0.5) * ry, a: rx * s, b: ry * s * rng.range(0.8, 1.1), ph: rng.range(0, TAU), rot: rng.range(-0.5, 0.5), hh: rng.range(0.5, 0.8), crest: rng.range(0.2, 0.55) });
+  }
+  const eps = 0.02;
+  for (let py = 0; py < h; py++) for (let px = 0; px < w; px++) {
+    const x = (px + 0.5) / PPU - wU / 2, y = (py + 0.5) / PPU - hU / 2;
+    let hv = 0;
+    for (let di = 0; di < dunes.length; di++) {
+      const D = dunes[di], c = Math.cos(D.rot), sn = Math.sin(D.rot), dx = x - D.cx, dy = y - D.cy;
+      const u = (dx * c + dy * sn) / D.a, v = (-dx * sn + dy * c) / D.b;
+      if (u < -1 || u > 1) continue;
+      const pr = u < D.crest ? Math.pow((u + 1) / (D.crest + 1), 0.8) : Math.sqrt(Math.max(0, 1 - ((u - D.crest) / (1 - D.crest)) ** 2)); // gentle windward, steep lee
+      const lobe = 1 + (vnoise(u * 2.6 + D.ph, di * 7.3 + 0.5, seed) - 0.5) * 0.7 + (vnoise(u * 7 + D.ph, 3.1 + di, seed + 5) - 0.5) * 0.22;
+      const cl = 0.32 * Math.sin(u * 2.2 + D.ph);                       // meandering ridge line
+      const t = Math.abs(v - cl) / Math.max(0.001, pr * lobe);
+      if (t >= 1) continue;
+      const k = D.hh * Math.pow(pr, 0.75) * (1 - Math.pow(t, 2.1)) * (1 + (vnoise(x * 0.45, y * 0.45, seed + 9) - 0.5) * 0.25);
+      if (k > hv) hv = k;
     }
-    for (let i = 0; i < 34; i++) { g.fillStyle = rng() < 0.7 ? 'rgba(255,255,255,.85)' : 'rgba(150,185,220,.5)'; g.beginPath(); g.arc(rng.range(-rx, rx), rng.range(-ry, ry), rng.range(0.2, 0.55), 0, TAU); g.fill(); }
-    g.restore();
-    path(); g.strokeStyle = 'rgba(112,144,178,.32)'; g.lineWidth = 0.8; g.stroke();
-    g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 1.2; g.beginPath(); g.ellipse(0, 0, rx * 0.93, ry * 0.9, 0, Math.PI * 1.02, Math.PI * 1.6); g.stroke();
+    H[py * w + px] = hv;
+  }
+  const img = mk(w, h), ig = g2(img), id = ig.createImageData(w, h), d = id.data;
+  const Lx = -0.52, Ly = -0.68, Lz = 0.5, ln = Math.hypot(Lx, Ly, Lz), sl = 5.2;
+  const at = (x, y) => H[clamp(y, 0, h - 1) * w + clamp(x, 0, w - 1)];
+  for (let py = 0; py < h; py++) for (let px = 0; px < w; px++) {
+    const i = py * w + px, hv = H[i];
+    if (hv <= eps) continue;
+    let gx = (at(px + 1, py) - at(px - 1, py)) * sl, gy = (at(px, py + 1) - at(px, py - 1)) * sl;
+    const rip = Math.sin((px * 0.9 + py * 0.55) * 0.6 + vnoise(px * 0.05, py * 0.05, seed + 2) * 9) * 0.03 * Math.min(1, hv * 3); // sastrugi ripples
+    gx += rip; gy += rip * 0.6;
+    const nl = Math.hypot(gx, gy, 1), lit = clamp(((-gx) * Lx + (-gy) * Ly + Lz) / (nl * ln), 0, 1);
+    const tt = clamp((lit - 0.17) * 1.75, 0, 1.2), edge = 1 - smooth(clamp(hv / 0.3, 0, 1));
+    let r, g, b;
+    if (tt < 0.5) { const f = tt / 0.5; r = lerp(128, 214, f); g = lerp(158, 230, f); b = lerp(204, 244, f); }       // blue shadow -> mid snow
+    else { const f = clamp((tt - 0.5) / 0.7, 0, 1); r = lerp(214, 253, f); g = lerp(230, 255, f); b = lerp(244, 255, f); } // -> lit crest
+    const cr = clamp((hv - 0.6) * 2.5, 0, 1) * (gx < 0.1 ? 1 : 0.4); r += (255 - r) * cr * 0.4; g += (255 - g) * cr * 0.4; b += (255 - b) * cr * 0.4;
+    r = lerp(r, 140, edge * 0.28); g = lerp(g, 166, edge * 0.28); b = lerp(b, 202, edge * 0.28); // cool, cold edge where it thins out
+    const o = i * 4; d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = smooth(clamp((hv - eps) / 0.1, 0, 1)) * 255;
+  }
+  ig.putImageData(id, 0, 0);
+  const s = sprite(wU, hU, PPU, (g) => {
+    g.drawImage(img, -wU / 2, -hU / 2, wU, hU);
+    for (let i = 0; i < 26; i++) { // glitter on the lit side
+      const x = rng.range(-rx, rx), y = rng.range(-ry, ry * 0.4);
+      if (at(Math.round((x + wU / 2) * PPU), Math.round((y + hU / 2) * PPU)) < 0.3) continue;
+      g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(x, y, rng.range(0.15, 0.4), 0, TAU); g.fill();
+    }
   });
-  return addShadow(s, { blur: 2, dx: 0.8, dy: 1.4, a: 0.3 });
+  s.kind = 'drift';
+  return addShadow(s, { blur: 1.8, dx: 0.7, dy: 1.3, a: 0.32 });
 }
 
 function makeIcePuddle(rng, R) {
@@ -2123,64 +2161,130 @@ function frostTexture(seed, S) {
   return c;
 }
 
-// ---- frozen creek (visual only: it is passable ice, no water queries) ------
+// ---- winter creek (visual only: it is passable, no water queries) ----------
+// Dark open water down the middle, ice shelves with a jagged lip at both edges, snow-capped stones with
+// wakes, and two animated glint layers (crossfaded dashes) so the water reads as moving.
 function iceCreek(world, rng) {
-  const S = 2048, k = S / world, N = 72, pts = [];
+  const S = 2560, k = S / world, SF = 1280, kf = SF / world, N = 72, pts = [];
   const y0 = rng.range(0.25, 0.35) * world, y1 = rng.range(0.68, 0.8) * world, ph = rng.range(0, TAU), ph2 = rng.range(0, TAU);
   for (let i = 0; i <= N; i++) {
     const u = i / N;
     pts.push([-80 + u * (world + 160), lerp(y0, y1, smooth(u)) + Math.sin(u * TAU * 1.4 + ph) * world * 0.1 + Math.sin(u * TAU * 3.3 + ph2) * world * 0.025, 62 + 18 * Math.sin(u * 11 + ph) + 10 * Math.sin(u * 27 + ph2)]);
   }
   const nrm = pts.map((p, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(N, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return [-dy / l, dx / l]; });
-  const ribbon = (g, scale, style) => {
-    g.strokeStyle = style; g.lineCap = 'round';
-    for (let i = 0; i < N; i++) { g.lineWidth = (pts[i][2] + pts[i + 1][2]) / 2 * scale * k; g.beginPath(); g.moveTo(pts[i][0] * k, pts[i][1] * k); g.lineTo(pts[i + 1][0] * k, pts[i + 1][1] * k); g.stroke(); }
+  // open-water fraction of the channel: wanders, and pinches shut under two ice bridges
+  const bridges = [rng.int(12, 26), rng.int(44, 62)], ph3 = rng.range(0, TAU);
+  const fw = (i) => {
+    let f = 0.7 + 0.12 * Math.sin(i * 0.37 + ph3) + 0.05 * Math.sin(i * 0.93 + ph2);
+    for (const bi of bridges) f *= 1 - 0.82 * Math.exp(-(((i - bi) / 2.6) ** 2));
+    return f;
   };
-  const off0 = (i, o) => [(pts[i][0] + nrm[i][0] * o * pts[i][2]) * k, (pts[i][1] + nrm[i][1] * o * pts[i][2]) * k], off = off0;
-  const out = mk(S, S), og = g2(out);
-  for (const [scale, col, blur, a] of [[1.9, '#d8e6ee', 16, 0.3], [1.38, '#e6f0f5', 6, 0.45]]) { // frosted banks
-    const h = mk(S, S); ribbon(g2(h), scale, col);
-    og.globalAlpha = a; og.drawImage(blurred(h, blur, 0), 0, 0);
+  const P = (i, o, kk) => [(pts[i][0] + nrm[i][0] * o * pts[i][2]) * kk, (pts[i][1] + nrm[i][1] * o * pts[i][2]) * kk];
+  const PL = (g, kk, o, a, b) => { g.beginPath(); for (let i = a; i <= b; i++) { const p = P(i, typeof o === 'function' ? o(i) : o, kk); i === a ? g.moveTo(p[0], p[1]) : g.lineTo(p[0], p[1]); } };
+  const ribbon = (g, kk, wf, style) => {
+    g.strokeStyle = style; g.lineCap = 'round';
+    for (let i = 0; i < N; i++) { g.lineWidth = (wf(i) + wf(i + 1)) / 2 * kk; g.beginPath(); g.moveTo(pts[i][0] * kk, pts[i][1] * kk); g.lineTo(pts[i + 1][0] * kk, pts[i + 1][1] * kk); g.stroke(); }
+  };
+  const out = mk(S, S), og = g2(out), wat = mk(S, S), wg = g2(wat);
+  for (const [scale, col, blur, a] of [[1.9, '#d8e6ee', 16, 0.22], [1.4, '#e6f0f5', 6, 0.32]]) { // frosted banks
+    const hz = mk(S, S); ribbon(g2(hz), k, (i) => pts[i][2] * scale, col);
+    const bl = blurred(hz, blur, 0); og.globalAlpha = a; og.drawImage(bl, 0, 0); bl.width = 0; hz.width = 0;
   }
   og.globalAlpha = 1;
-  const iceRaw = mk(S, S), rg = g2(iceRaw);
-  for (const [scale, col] of [[1.1, '#7a9db4'], [1, '#aecbda'], [0.74, '#9cbdd0'], [0.5, '#86aac2'], [0.24, '#6a96b2']]) ribbon(rg, scale, col);
-  const ice = blurred(iceRaw, 4, 0), ig = g2(ice);
-  ig.globalCompositeOperation = 'source-atop';
-  for (let q = 0; q < 90; q++) { // mottled ice
-    const i = rng.int(0, N), p = off0(i, rng.range(-0.5, 0.5)), r = rng.range(5, 18) * k;
-    const mg = ig.createRadialGradient(p[0], p[1], 0, p[0], p[1], r * 1.8), dark = rng() < 0.5, ma = rng.range(0.1, 0.22);
-    mg.addColorStop(0, dark ? `rgba(52,96,130,${ma})` : `rgba(236,248,254,${ma})`); mg.addColorStop(1, dark ? 'rgba(52,96,130,0)' : 'rgba(236,248,254,0)');
-    ig.fillStyle = mg; ig.beginPath(); ig.arc(p[0], p[1], r * 1.8, 0, TAU); ig.fill();
+  // 1. ice shelf over the whole channel, then mottling, cracks and snow dust on it (only the shelf exists yet)
+  ribbon(wg, k, (i) => pts[i][2] * 1.12, '#e6f1f7');
+  ribbon(wg, k, (i) => pts[i][2] * 1.0, '#b9d4e4');
+  wg.globalCompositeOperation = 'source-atop';
+  for (let q = 0; q < 110; q++) { // mottled ice
+    const i = rng.int(0, N), p = P(i, rng.range(-0.55, 0.55), k), r = rng.range(5, 18) * k, dark = rng() < 0.45, ma = rng.range(0.1, 0.24);
+    const mg = wg.createRadialGradient(p[0], p[1], 0, p[0], p[1], r * 1.8);
+    mg.addColorStop(0, dark ? `rgba(60,110,148,${ma})` : `rgba(240,250,255,${ma})`); mg.addColorStop(1, dark ? 'rgba(60,110,148,0)' : 'rgba(240,250,255,0)');
+    wg.fillStyle = mg; wg.beginPath(); wg.arc(p[0], p[1], r * 1.8, 0, TAU); wg.fill();
   }
-  for (const o of [-0.34, -0.18, 0.12, 0.3]) { // flow streaks
-    ig.strokeStyle = 'rgba(244,250,254,.3)'; ig.lineWidth = 1.6 * k; ig.setLineDash([rng.range(30, 80) * k, rng.range(20, 60) * k]); ig.beginPath();
-    for (let i = 0; i <= N; i++) { const p = off(i, o); i ? ig.lineTo(p[0], p[1]) : ig.moveTo(p[0], p[1]); }
-    ig.stroke(); ig.setLineDash([]);
-  }
-  for (let q = 0; q < 3; q++) { // open black-ice patches
-    const i = rng.int(4, N - 4), p = off(i, rng.range(-0.15, 0.15)), rx = rng.range(12, 22) * k, ry = rng.range(6, 10) * k;
-    const gr = ig.createRadialGradient(p[0], p[1], 0, p[0], p[1], rx); gr.addColorStop(0, '#2a4c62'); gr.addColorStop(0.7, '#3a6a84'); gr.addColorStop(1, '#5a92ae');
-    ig.fillStyle = gr; ig.beginPath(); ig.ellipse(p[0], p[1], rx, ry, Math.atan2(nrm[i][0], -nrm[i][1]), 0, TAU); ig.fill();
-    ig.strokeStyle = 'rgba(220,240,250,.7)'; ig.lineWidth = 1.4 * k; ig.stroke();
-  }
-  for (let q = 0; q < 34; q++) { // cracks
-    const i = rng.int(0, N), p = off(i, rng.range(-0.4, 0.4));
-    let x = p[0], y = p[1], a = rng.range(0, TAU);
-    const cr = [[x, y]]; for (let j = rng.int(5, 11); j-- > 0;) { a += rng.range(-0.8, 0.8); x += Math.cos(a) * rng.range(6, 14) * k; y += Math.sin(a) * rng.range(6, 14) * k; cr.push([x, y]); }
-    for (const [col, d, w] of [['rgba(44,84,116,.55)', 0, 1.1], ['rgba(248,252,255,.85)', -0.5, 0.55]]) {
-      ig.strokeStyle = col; ig.lineWidth = w * k * 1.3; ig.beginPath(); cr.forEach((c, j) => (j ? ig.lineTo(c[0] + d, c[1] + d) : ig.moveTo(c[0] + d, c[1] + d))); ig.stroke();
+  for (let q = 0; q < 46; q++) { // cracks that run out from the water's edge across the shelf
+    const i = rng.int(0, N), sg = rng() < 0.5 ? -1 : 1, p = P(i, sg * rng.range(fw(i) * 0.42, 0.5), k);
+    let x = p[0], y = p[1], a = Math.atan2(nrm[i][1] * sg, nrm[i][0] * sg) + rng.range(-0.9, 0.9);
+    const cr = [[x, y]]; for (let j = rng.int(3, 8); j-- > 0;) { a += rng.range(-0.7, 0.7); x += Math.cos(a) * rng.range(5, 12) * k; y += Math.sin(a) * rng.range(5, 12) * k; cr.push([x, y]); }
+    for (const [col, d, w] of [['rgba(48,92,126,.55)', 0, 1.0], ['rgba(250,253,255,.9)', -0.5, 0.5]]) {
+      wg.strokeStyle = col; wg.lineWidth = w * k * 1.2; wg.beginPath(); cr.forEach((c, j) => (j ? wg.lineTo(c[0] + d, c[1] + d) : wg.moveTo(c[0] + d, c[1] + d))); wg.stroke();
     }
   }
-  for (let i = 0; i <= N; i++) for (const sg of [-1, 1]) { // snow dusted along both banks
-    if (rng() < 0.3) continue;
-    const p = off(i, sg * rng.range(0.42, 0.56)), r = rng.range(2, 8) * k;
-    ig.fillStyle = `rgba(246,251,254,${rng.range(0.45, 0.8)})`; ig.beginPath(); ig.ellipse(p[0], p[1], r * 1.4, r, rng.range(0, 3), 0, TAU); ig.fill();
+  for (let i = 0; i <= N; i++) for (const sg of [-1, 1]) { // snow banked on the outer rim of the shelf
+    if (rng() < 0.4) continue;
+    const p = P(i, sg * rng.range(0.44, 0.58), k), r = rng.range(1.8, 5.5) * k;
+    wg.fillStyle = `rgba(247,251,254,${rng.range(0.35, 0.7)})`; wg.beginPath(); wg.ellipse(p[0], p[1], r * 1.5, r, rng.range(0, 3), 0, TAU); wg.fill();
   }
-  for (let q = 0; q < 1400; q++) { ig.fillStyle = `rgba(255,255,255,${rng.range(0.25, 0.7)})`; ig.beginPath(); ig.arc(rng() * S, rng() * S, rng.range(0.6, 1.8), 0, TAU); ig.fill(); }
-  og.drawImage(ice, 0, 0);
+  for (let q = 0; q < 1500; q++) { wg.fillStyle = `rgba(255,255,255,${rng.range(0.25, 0.7)})`; wg.beginPath(); wg.arc(rng() * S, rng() * S, rng.range(0.6, 1.7), 0, TAU); wg.fill(); }
+  wg.globalCompositeOperation = 'source-over';
+  // 2. open water: stacked ribbons darken toward the middle of the channel
+  for (const [sc, col] of [[1.0, '#3d7ea0'], [0.88, '#2f6a8c'], [0.66, '#225673'], [0.4, '#173f58']]) ribbon(wg, k, (i) => pts[i][2] * fw(i) * sc, col);
+  const wob = [];
+  for (let i = 0; i <= N; i++) wob.push(rng.range(0, TAU));
+  wg.save(); // dark current streaks and soft eddies inside the water
+  wg.lineCap = 'round';
+  for (const o of [-0.22, -0.08, 0.1, 0.24]) {
+    wg.strokeStyle = 'rgba(8,28,44,.5)'; wg.lineWidth = 2.2 * k; wg.setLineDash([rng.range(40, 90) * k, rng.range(18, 50) * k]);
+    PL(wg, k, (i) => o * fw(i) + Math.sin(i * 0.5 + wob[i % 8]) * 0.03, 0, N); wg.stroke(); wg.setLineDash([]);
+  }
+  wg.restore();
+  // 3. ice lip: jagged plates and crystals overhanging the water on both sides, with a dark undercut
+  for (let i = 0; i <= N; i++) for (const sg of [-1, 1]) for (let q = 0; q < 2; q++) {
+    const j = Math.min(i + rng() , N - 1e-6), i0 = Math.floor(j), t = j - i0, o = sg * (fw(i0) * 0.5 - rng.range(0, 0.07));
+    const a0 = P(i0, o, k), a1 = P(i0 + 1, sg * (fw(i0 + 1) * 0.5), k), cx = lerp(a0[0], a1[0], t), cy = lerp(a0[1], a1[1], t);
+    const rr = rng.range(1.8, 5) * k, rot = rng.range(0, TAU), nv = rng.int(6, 9), poly = [];
+    for (let v = 0; v < nv; v++) { const ang = rot + v / nv * TAU, rv = rr * (v % 2 ? rng.range(0.7, 0.92) : rng.range(0.98, 1.2)); poly.push([cx + Math.cos(ang) * rv * 1.4, cy + Math.sin(ang) * rv]); }
+    for (const [dx, dy, col] of [[-nrm[i0][0] * sg * 1.4 * k, -nrm[i0][1] * sg * 1.4 * k, 'rgba(10,38,58,.5)'], [0, 0, rng() < 0.5 ? '#e9f4fa' : '#d4e6f0']]) {
+      wg.fillStyle = col; wg.beginPath(); poly.forEach((v, m) => (m ? wg.lineTo(v[0] + dx, v[1] + dy) : wg.moveTo(v[0] + dx, v[1] + dy))); wg.closePath(); wg.fill();
+    }
+    wg.strokeStyle = 'rgba(255,255,255,.35)'; wg.lineWidth = 0.4 * k; wg.beginPath(); poly.forEach((v, m) => (m ? wg.lineTo(v[0], v[1]) : wg.moveTo(v[0], v[1]))); wg.closePath(); wg.stroke();
+  }
+  // 4. stones in the current: wake and bow ring painted here, the snow-capped stone sprite is decor
+  const rocks = [];
+  for (let q = 0; q < 11; q++) {
+    const i = rng.int(3, N - 6); if (fw(i) < 0.4 || rocks.some((r0) => Math.abs(r0.i - i) < 6)) continue;
+    const o = rng.range(-0.3, 0.3) * fw(i), p = P(i, o, 1), r = rng.pick([6, 8, 9, 11, 14]);
+    rocks.push({ x: p[0], y: p[1], r, i });
+    const dx = pts[i + 1][0] - pts[i][0], dy = pts[i + 1][1] - pts[i][1], dl = Math.hypot(dx, dy) || 1, ux = dx / dl, uy = dy / dl;
+    wg.strokeStyle = 'rgba(232,246,252,.4)'; wg.lineWidth = 0.9 * k; wg.beginPath(); wg.ellipse(p[0] * k, p[1] * k, r * 1.35 * k, r * 1.15 * k, 0, 0, TAU); wg.stroke();
+    for (let j = 1; j <= 7; j++) { // foam wake trailing downstream
+      const wx = (p[0] + ux * r * (0.9 + j * 1.0) + rng.range(-1, 1)) * k, wy = (p[1] + uy * r * (0.9 + j * 1.0) + rng.range(-1, 1)) * k, wr = r * (0.7 - j * 0.07) * k;
+      wg.fillStyle = `rgba(236,248,254,${0.55 - j * 0.06})`; wg.beginPath(); wg.ellipse(wx, wy, wr * 1.3, wr * 0.75, Math.atan2(uy, ux), 0, TAU); wg.fill();
+    }
+  }
+  og.drawImage(wat, 0, 0); wat.width = 0;
+  // 5. animated glints: two dash layers, offset half a period, crossfaded in drawCreek
+  const flows = [];
+  for (let L = 0; L < 2; L++) {
+    const fl = mk(SF, SF), fg = g2(fl), r2 = makeRng(rng.int(1, 9999)), lanes = [-0.3, -0.12, 0.06, 0.24, 0.38];
+    fg.lineCap = 'round';
+    lanes.forEach((o, li) => {
+      const d = (26 + li * 9) * kf, gp = (30 + li * 14) * kf;
+      for (const [col, lw, sh] of [['rgba(222,242,252,.55)', 1.5, 0], ['rgba(255,255,255,.7)', 0.7, -0.5]]) {
+        fg.strokeStyle = col; fg.lineWidth = lw * kf * 1.4; fg.setLineDash([d, gp]); fg.lineDashOffset = -L * (d + gp) / 2 - li * 17 * kf;
+        PL(fg, kf, (i) => o * fw(i) + Math.sin(i * 0.5 + li) * 0.025, 0, N); fg.save(); fg.translate(sh * kf, sh * kf); fg.stroke(); fg.restore();
+      }
+    });
+    fg.setLineDash([]);
+    for (let q = 0; q < 160; q++) { // glitter dots on the water
+      const i = r2.int(0, N), p = P(i, r2.range(-0.5, 0.5) * fw(i), kf);
+      fg.fillStyle = `rgba(240,252,255,${r2.range(0.3, 0.8)})`; fg.beginPath(); fg.arc(p[0], p[1], r2.range(0.5, 1.3), 0, TAU); fg.fill();
+    }
+    flows.push(fl);
+  }
   const d = (x, y) => { let best = 1e9; for (let i = 0; i <= N; i++) { const v = Math.hypot(x - pts[i][0], y - pts[i][1]) - pts[i][2] * 0.5; if (v < best) best = v; } return best; };
-  return { c: out, pts, nrm, d, world };
+  return { c: out, flows, pts, nrm, rocks, d, world, cam: { x: 0, y: 0, zoom: 1, shakeX: 0, shakeY: 0 } };
+}
+
+// Static creek map, then the two glint layers sliding and crossfading so the water seems to flow.
+function drawCreek(ctx, cam, t, st) {
+  const cr = st.creek, c2 = cr.cam;
+  drawWorldMap(ctx, cam, cr.c, st.world);
+  if (World.quality < 1) return;                                   // glints are the first thing dropped when frames run slow
+  c2.zoom = cam.zoom; c2.shakeX = cam.shakeX; c2.shakeY = cam.shakeY; c2.y = cam.y;
+  const a = 0.5 + 0.5 * Math.sin(t * 1.5);
+  ctx.globalAlpha = a * 0.9; c2.x = cam.x - 2.5 * Math.sin(t * 0.8); drawWorldMap(ctx, c2, cr.flows[0], st.world);
+  ctx.globalAlpha = (1 - a) * 0.9; c2.x = cam.x + 2.5 * Math.sin(t * 0.8); drawWorldMap(ctx, c2, cr.flows[1], st.world);
+  ctx.globalAlpha = 1;
 }
 
 // Crop-blit a whole-world map canvas (transparent where it is empty).
@@ -2557,12 +2661,15 @@ function buildValleySprites(rng) {
   for (const [i, R] of [[0, 9], [1, 12], [2, 16], [3, 20]]) sp.puddles.push(makeIcePuddle(rng.sub('ip' + i), R));
   for (const [i, R] of [[0, 5], [1, 7], [2, 9], [3, 6]]) sp.stars.push(makeFrostStar(rng.sub('fs' + i), R));
   for (const [i, c] of [[0, ['#8a7a52', '#c9b98a']], [1, ['#94845a', '#d8caa0']], [2, ['#7c6e4a', '#bfae80']], [3, ['#8a7a52', '#dccfa6']], [4, ['#94845a', '#c9b98a']]]) sp.grass.push(makeDryGrass(rng.sub('dg' + i), c, true));
-  for (const r of [6, 8, 11, 14, 9, 17]) sp.stones.push(makeSnowStone(rng.sub('st' + r + sp.stones.length), r));
+  for (const r of [6, 8, 11, 14, 9, 17]) { const st = makeSnowStone(rng.sub('st' + r + sp.stones.length), r); st.r = r; sp.stones.push(st); }
   for (const [len, w] of [[70, 5], [100, 6], [60, 4.5]]) sp.twigs.push(makeTwig(rng.sub('t' + len), len, w, ['#26221e', '#5e5448', '#b8b0a2']));
   for (let i = 0; i < 2; i++) sp.needles.push(makeNeedles(rng.sub('n' + i), ['#3f3a28', '#59492c', '#6e6a44']));
   for (const [k, col, size] of [['oak', 'umber', 30], ['birch', 'umber', 26], ['maple', 'umber', 28]]) sp.leaves.push(makeLeaf(rng.sub('l' + k), k, col, size, true));
   return sp;
 }
+
+// Fold an angle into (-pi/2, pi/2] so a sprite lit from the top-left is never turned upside down.
+function foldRot(a) { a = ((a % Math.PI) + Math.PI) % Math.PI; return a > Math.PI / 2 ? a - Math.PI : a; }
 
 function placeValley(dec, sp, rng, world, seed, tex, creek) {
   const cs = dec.cs, n = dec.n, mask = tex.snowMask, mn = tex.maskN;
@@ -2579,11 +2686,15 @@ function placeValley(dec, sp, rng, world, seed, tex, creek) {
     if (rng() < 0.14) { const [x, y] = P(); if (creek.d(x, y) > 8) dec.add(1, rng.pick(sp.needles), x, y, rng() * TAU, rng.range(0.9, 1.3)); }
     if (rng() < 0.12) { const [x, y] = P(); if (creek.d(x, y) > 8) dec.add(1, rng.pick(sp.leaves), x, y, rng() * TAU, rng.range(0.8, 1.2), { a: 0.9 }); }
   }
+  for (const rk of creek.rocks) { // stones standing in the current, nearest sprite size
+    let best = sp.stones[0]; for (const sc of sp.stones) if (Math.abs(sc.r - rk.r) < Math.abs(best.r - rk.r)) best = sc;
+    dec.add(2, best, rk.x, rk.y, 0, 1, { flip: rng() < 0.5 });
+  }
   for (let i = 0; i <= creek.pts.length - 1; i += 1) for (const sg of [-1, 1]) { // frozen banks: snow lips, dry reeds, stones
     const p = creek.pts[i], nm = creek.nrm[i], r = rng();
     if (p[0] < 20 || p[0] > world - 20) continue;
     const o = sg * (p[2] * 0.5 + rng.range(8, 24)), x = p[0] + nm[0] * o + rng.range(-6, 6), y = p[1] + nm[1] * o + rng.range(-6, 6);
-    if (r < 0.22) dec.add(0, rng.pick(sp.drifts), x, y, Math.atan2(nm[1], nm[0]) + Math.PI / 2, rng.range(0.6, 0.95), { flip: rng() < 0.5 });
+    if (r < 0.22) dec.add(0, rng.pick(sp.drifts), x, y, foldRot(Math.atan2(nm[1], nm[0]) + Math.PI / 2), rng.range(0.6, 0.95), { flip: rng() < 0.5 });
     else if (r < 0.52) dec.add(1, rng.pick(sp.grass), x, y, rng() * TAU, rng.range(1, 1.5), { flip: rng() < 0.5 });
     else if (r < 0.64) dec.add(2, rng.pick(sp.stones), x, y, 0, rng.range(0.8, 1.2), { flip: rng() < 0.5 });
   }
@@ -2607,7 +2718,7 @@ A.Biomes.valley = {
   },
   back(ctx, cam, t, st) {
     fillTile(ctx, cam, st.tex, st.texUnits, 1, 0, 0, 1);
-    drawWorldMap(ctx, cam, st.creek.c, st.world);
+    drawCreek(ctx, cam, t, st);
     drawDecor(ctx, cam, st.dec, [0, 1, 2, 3], t);
   },
   front(ctx, cam, t, st) {
