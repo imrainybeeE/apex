@@ -16,7 +16,7 @@ Read this file first, then `docs/DESIGN.md`. DESIGN.md is the full spec: Appendi
 - **Ask before visual or game-design decisions.** Even when the user says "full send", ask 2–4 short questions with the question tool, offering concrete options. The user corrected this explicitly.
 - **Watch usage.** Prefer small, verified steps over big speculative rewrites.
 - **Batch screenshots in one browser session.** Each headless Chromium launch flashes a Claude-logo icon in the macOS Dock. A screenshot loop across agents alarmed the user. Use one Playwright script that takes many shots, not `tools/shot.mjs` in a loop.
-- **Minecraft audio** from the user's Prism Launcher install is planned (M2). It's private use only: keep any build with those sounds off public hosting.
+- **Minecraft audio** is in every build, including the one the user puts on Google Sites for the teacher. The user decided the site is private enough; the sounds are Mojang's, so don't put a build on open public hosting without asking.
 - **Installing test tooling is pre-approved** (Playwright browsers etc.).
 - **User's general rules** are in `~/.claude/CLAUDE.md`: lead with outcomes, run real checks before saying done, follow the frontend rules (avoid list, screenshot-critique passes), and stick to the game rules (one-key restart, no soft-locks).
 
@@ -132,15 +132,14 @@ Plain HTML + Canvas 2D + DOM, classic scripts sharing `window.Apex` (no build st
 Each step ends with smoke passing and a commit.
 
 1. ~~UI overhaul~~: done (see §4). For any later UI change, run `node tools/ui-shots.mjs <round>` before and after, review with `tools/pair.py`, then smoke.
-2. **Playtest build**: the user is playtesting `dist/apex.html` and putting it on Google Sites for the teacher. Wait for their feedback before more balance work.
-3. **Balance and pond fix** (continue from §4 findings): hit the sim targets above. Diagnose the pond with `?tier=t3_pond&debug=1` plus the sim (hunter counts over time). Then re-run smoke.
-3. **Windows check**: Chromium passes at DPR 1, 1.25 and 1.5 (`tools/windows-check.mjs`). Firefox is **not checked**: it fails to launch inside the Claude Code Bash sandbox, and running outside the sandbox was denied. The user can run `node tools/windows-check.mjs` in their own terminal. Real Windows (Edge, ClearType, GPU) can't be confirmed from macOS.
-4. **Hand a build to playtesters**: zip the folder (exclude `node_modules`, `shots`, `tools/scratch`); they double-click `index.html`.
-5. **Then the milestones in DESIGN.md**:
-   - M2: Land path + Minecraft audio + final hold on the valley.
-   - M3: Sky + Sea.
-   - M4: Spore editor + parts.
-   - M5: polish + share.
+2. **M2 is done (Land path + audio)**:
+   - Pond Edge → t4 Spring Meadow → t5 Autumn Forest → t6 Winter Valley (final hold). Seasons, more realistic matte-fur land animals, and the ability mapping are recorded in DESIGN.md "M2 — Land path decisions".
+   - Minecraft audio in every build (user's call): `python3 tools/build-audio.py` regenerates `js/sound-data.js` and `js/music-data.js`; `js/audio.js` maps game events to sounds.
+   - Builds: `node tools/build-single.mjs` → `dist/apex.html` (3.5 MB, with music); `--no-music` → `dist/apex-lite.html` (1.3 MB) if Google Sites rejects the big one.
+   - Balanced bot on the full run: 3/3 wins, 11.5–20 min, harmony 55–79. Angry-neutral nips scale with √depth (depth × 4 killed in a few bumps late on).
+   - Known gaps: the valley creek is visual only (no collision); snow drifts read a little like soap bars; the wolf's howl uses the spray icon on the touch button; hawk, meadowlark and grouse look plain when resting.
+3. **Next**: the user's playtest feedback on pacing and the new tiers; then M3 (Sky + Sea), M4 (editor + parts), M5 (polish). Firefox and real Windows are still unchecked (see Windows check below).
+4. **Windows check**: Chromium passes at DPR 1, 1.25 and 1.5 (`tools/windows-check.mjs`). Firefox is **not checked**: it fails to launch inside the Claude Code Bash sandbox, and running outside the sandbox was denied. The user can run `node tools/windows-check.mjs` in their own terminal. Real Windows (Edge, ClearType, GPU) can't be confirmed from macOS.
 
 ## 6. Pstack skills that fit the UI overhaul
 
