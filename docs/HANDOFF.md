@@ -138,8 +138,16 @@ Each step ends with smoke passing and a commit.
    - Builds: `node tools/build-single.mjs` → `dist/apex.html` (3.5 MB, with music); `--no-music` → `dist/apex-lite.html` (1.3 MB) if Google Sites rejects the big one.
    - Balanced bot on the full run: 3/3 wins, 11.5–20 min, harmony 55–79. Angry-neutral nips scale with √depth (depth × 4 killed in a few bumps late on).
    - Known gaps: the valley creek is visual only (no collision); snow drifts read a little like soap bars; the wolf's howl uses the spray icon on the touch button; hawk, meadowlark and grouse look plain when resting.
-3. **Next**: the user's playtest feedback on pacing and the new tiers; then M3 (Sky + Sea), M4 (editor + parts), M5 (polish). Firefox and real Windows are still unchecked (see Windows check below).
-4. **Windows check**: Chromium passes at DPR 1, 1.25 and 1.5 (`tools/windows-check.mjs`). Firefox is **not checked**: it fails to launch inside the Claude Code Bash sandbox, and running outside the sandbox was denied. The user can run `node tools/windows-check.mjs` in their own terminal. Real Windows (Edge, ClearType, GPU) can't be confirmed from macOS.
+3. **Playtest round (2026-10-28), done and committed**: hold-R restart, backquote dev menu (jump to any tier), easier tutorial caterpillar, first death per tier forgiven (same tier at 50%), difficulty modes on the title (Easy / Normal / Scary, `CFG.DIFFICULTY`), forest split into golden birch + pine zones with zoned animals (`World.zoneAt`, roster `zone`), neutrals only anger when rammed, bolder spray/musk/howl visuals, ability icons.
+4. **Boss (IN PROGRESS, commit 2701080 "WIP boss")**: `js/boss.js`, The Old One (ancient cave bear, `cavebear` look with glowing scars), crashes into the Winter Valley hold at `tier.boss.at` (15s). Phases, telegraphs, retry-at-full-size on death, UI health bar + title card, boss SFX + C418 'Boss' music are written but **not run yet**. Next steps, in order:
+   - Load `index.html?tier=t6_valley&sp=wolf&tutorial=0&skipEditor=1`, dev menu "Fill growth", wait 15s of hold (or set `Apex.G.finalHold = 15`), and check for page errors.
+   - Run one headless sim with the boss bot: `Apex.debug.simulate(400, {tier:'t6_valley', bot:'balanced'})` and check victory, fight length (target 60-90s) and player deaths. Tune `tier.boss` (hp 4800, damage shares) and `T` timings in boss.js.
+   - Screenshot pass of arrival, each telegraph, enraged, death light, at 1440x900 and 390x844 (one launch). Check the boss bar on mobile with the pause button.
+   - Rebuild `dist/apex.html` and `dist/apex-lite.html`; sound-data is now 1.3 MB and music 3.7 MB, so the full build is about 6 MB.
+   - Record the boss in DESIGN.md (design: user picked legend beast, surprise during the hold, phases, all SFX).
+5. **Dev server**: `.claude/launch.json` runs `tools/serve.py` (no-cache headers). The user plays in the browser pane at localhost:8642; stale cached CSS broke the dev menu and the difficulty buttons before this.
+6. **Later**: M3 (Sky + Sea), M4 (editor + parts), M5 (polish). Firefox and real Windows are still unchecked.
+7. **Windows check**: Chromium passes at DPR 1, 1.25 and 1.5 (`tools/windows-check.mjs`). Firefox is **not checked**: it fails to launch inside the Claude Code Bash sandbox, and running outside the sandbox was denied. The user can run `node tools/windows-check.mjs` in their own terminal. Real Windows (Edge, ClearType, GPU) can't be confirmed from macOS.
 
 ## 6. Pstack skills that fit the UI overhaul
 
