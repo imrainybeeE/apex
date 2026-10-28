@@ -352,6 +352,7 @@ const LEAF_COLS = {
   russet: ['#a85a30', '#5e2a14'], ochre: ['#c28a40', '#775020'], olive: ['#7c8038', '#434a1e'],
   umber: ['#7d6040', '#412f1e'], rust: ['#b86e34', '#582e14'], green: ['#6c8c3a', '#34501f'],
   gold: ['#cfa545', '#7e5c20'], moss: ['#5c7a34', '#2e4620'],
+  lemon: ['#f4e050', '#b8921a'], butter: ['#fae87c', '#c8a424'], honey: ['#ecbc38', '#a0701a'],
   crimson: ['#c4402a', '#601810'], amber: ['#e4962e', '#8c4c14'], scarlet: ['#d2502c', '#6e1c10'],
 };
 
@@ -1158,8 +1159,9 @@ function makeMotes(rng, n, o) {
   return a;
 }
 
-function drawMotes(ctx, cam, t, motes, glow, P, comp, steady) {
-  if (World.quality < 1) return;
+function drawMotes(ctx, cam, t, motes, glow, P, comp, steady, k) {
+  if (World.quality < 1 || (k !== undefined && k < 0.03)) return;
+  k = k === undefined ? 1 : k;
   const D = A.DPR || 1, W = A.W, H = A.H, z = cam.zoom;
   ctx.save();
   ctx.globalCompositeOperation = comp || 'lighter';
@@ -1169,7 +1171,7 @@ function drawMotes(ctx, cam, t, motes, glow, P, comp, steady) {
     const sx = W / 2 + wrapRel(ux - cam.x, P) * z * m.q, sy = H / 2 + wrapRel(uy - cam.y, P) * z * m.q;
     const r = Math.max(1.6, m.r * z * m.q);
     if (sx < -r || sx > W + r || sy < -r || sy > H + r) continue;
-    ctx.globalAlpha = steady ? m.a : m.a * (0.55 + 0.45 * Math.sin(t * 1.4 * m.sp + m.ph));
+    ctx.globalAlpha = k * (steady ? m.a : m.a * (0.55 + 0.45 * Math.sin(t * 1.4 * m.sp + m.ph)));
     ctx.drawImage(glow, sx - r * 2, sy - r * 2, r * 4, r * 4);
   }
   ctx.restore();
@@ -2027,29 +2029,53 @@ function meadowTexture(seed, S) {
   return c;
 }
 
-const FOREST_LEAVES = ['#b9501c', '#d07a22', '#9c2e16', '#dca43a', '#7a3a14', '#c4602a', '#e0b44a'];
+const BIRCH_LEAVES = ['#f0d040', '#e8b830', '#f6e068', '#d09a22', '#fff0a0', '#e2c24a'];
+const PINE_NEEDLES = ['#a85a26', '#c97a30', '#7a3c18', '#d8923c', '#5c2c12', '#8a4a1e'];
 
-function forestTexture(seed, S) {
-  const lut = makeLut([[0, '#241508'], [0.3, '#3c220d'], [0.55, '#5c3415'], [0.8, '#7e4a1c'], [1, '#9c6226']]);
-  const c = baseTexture(seed, S, lut, [4, 10, 24], (o, a, b, cc) => {
-    const moss = clamp((b - 0.58) * 4, 0, 1) * 0.5; o[0] += (60 - o[0]) * moss; o[1] += (82 - o[1]) * moss; o[2] += (30 - o[2]) * moss;
-    const dk = b < 0.36 ? 0.82 : 1; o[0] *= dk; o[1] *= dk; o[2] *= dk;
-  }, 1.1);
+// Pale golden birch-wood floor: straw, yellow leaf scraps, white bark flecks.
+function birchTexture(seed, S) {
+  const lut = makeLut([[0, '#8c6c2e'], [0.3, '#ab8a3a'], [0.55, '#caa94c'], [0.8, '#e0c56a'], [1, '#f1dd8c']]);
+  const c = baseTexture(seed, S, lut, [4, 11, 26], (o, a, b, cc) => {
+    const lite = clamp((cc - 0.5) * 3, 0, 1) * 0.35; o[0] += (250 - o[0]) * lite; o[1] += (238 - o[1]) * lite; o[2] += (160 - o[2]) * lite;
+    const olive = clamp((b - 0.6) * 4, 0, 1) * 0.3; o[0] += (150 - o[0]) * olive; o[1] += (140 - o[1]) * olive; o[2] += (50 - o[2]) * olive;
+  }, 0.9);
   const g = g2(c), rng = makeRng(seed + 99);
-  dotBatch(g, S, rng, 12000, ['#1c0f06', '#321c0c', '#a8773e'], 0.8, 2.4, 0.3);
-  scatter(g, S, rng, 150, 34, (r) => ({ r: r.range(10, 26) }), (gg, x, y, p) => { // damp moss
-    const gr = gg.createRadialGradient(x, y, 0, x, y, p.r); gr.addColorStop(0, 'rgba(110,142,56,.4)'); gr.addColorStop(1, 'rgba(70,98,36,0)');
-    gg.fillStyle = gr; gg.beginPath(); gg.arc(x, y, p.r, 0, TAU); gg.fill();
-  });
-  strokeBatch(g, S, rng, 30000, ['#8a6a3a', '#6b4f2a', '#a88a52', '#4e3820', '#7a4a24'], 26, 1.4, 0.55, 0.15); // pine needles
-  scatter(g, S, rng, 1100, 28, (r) => ({ s: r.range(7, 17), a: r.range(0, TAU), c: r.pick(FOREST_LEAVES) }), (gg, x, y, p) => { // fallen leaf bits
+  strokeBatch(g, S, rng, 30000, ['#e8d48c', '#f6e8b0', '#c8aa58', '#b89a48', '#fff4c8'], 20, 1.2, 0.5, 0.8);
+  dotBatch(g, S, rng, 8000, ['#6a4a18', '#8a6a28', '#fff6cc'], 0.8, 2.2, 0.3);
+  scatter(g, S, rng, 1500, 20, (r) => ({ s: r.range(5, 12), a: r.range(0, TAU), c: r.pick(BIRCH_LEAVES) }), (gg, x, y, p) => { // fallen yellow leaf scraps
     gg.save(); gg.translate(x, y); gg.rotate(p.a);
-    gg.globalAlpha = 0.62; gg.fillStyle = p.c;
-    gg.beginPath(); gg.moveTo(-p.s, 0); gg.quadraticCurveTo(0, -p.s * 0.62, p.s, 0); gg.quadraticCurveTo(0, p.s * 0.62, -p.s, 0); gg.fill();
-    gg.globalAlpha = 1; gg.strokeStyle = 'rgba(40,16,6,.35)'; gg.lineWidth = 0.8; gg.beginPath(); gg.moveTo(-p.s * 0.9, 0); gg.lineTo(p.s * 0.8, 0); gg.stroke();
+    gg.globalAlpha = 0.78; gg.fillStyle = p.c;
+    gg.beginPath(); gg.moveTo(-p.s, 0); gg.quadraticCurveTo(0, -p.s * 0.6, p.s, 0); gg.quadraticCurveTo(0, p.s * 0.6, -p.s, 0); gg.fill();
+    gg.globalAlpha = 1; gg.strokeStyle = 'rgba(120,80,10,.3)'; gg.lineWidth = 0.7; gg.beginPath(); gg.moveTo(-p.s * 0.9, 0); gg.lineTo(p.s * 0.8, 0); gg.stroke();
     gg.restore();
   });
-  strokeBatch(g, S, rng, 200, ['#e0b070'], 22, 1, 0.35, 0);
+  scatter(g, S, rng, 260, 12, (r) => ({ rx: r.range(4, 9), ry: r.range(1.4, 2.4), a: r.range(0, TAU) }), (gg, x, y, p) => { // curls of white birch bark with black marks
+    gg.save(); gg.translate(x, y); gg.rotate(p.a);
+    gg.fillStyle = 'rgba(247,243,230,.92)'; gg.beginPath(); gg.ellipse(0, 0, p.rx, p.ry, 0, 0, TAU); gg.fill();
+    gg.strokeStyle = 'rgba(24,20,16,.8)'; gg.lineWidth = 1; gg.beginPath(); gg.moveTo(-p.rx * 0.5, 0); gg.lineTo(p.rx * 0.5, 0); gg.stroke();
+    gg.restore();
+  });
+  return c;
+}
+
+// Rust-orange pine-needle floor with deep green moss.
+function pineTexture(seed, S) {
+  const lut = makeLut([[0, '#2a1409'], [0.3, '#48220d'], [0.55, '#6e3612'], [0.8, '#96491a'], [1, '#b86026']]);
+  const c = baseTexture(seed, S, lut, [4, 10, 24], (o, a, b, cc) => {
+    const moss = clamp((b - 0.52) * 4, 0, 1) * 0.65; o[0] += (22 - o[0]) * moss; o[1] += (58 - o[1]) * moss; o[2] += (30 - o[2]) * moss;
+    const dk = a < 0.38 ? 0.8 : 1; o[0] *= dk; o[1] *= dk; o[2] *= dk;
+  }, 1.1);
+  const g = g2(c), rng = makeRng(seed + 99);
+  dotBatch(g, S, rng, 10000, ['#1a0d05', '#2e170a', '#a8773e'], 0.8, 2.4, 0.3);
+  scatter(g, S, rng, 220, 34, (r) => ({ r: r.range(12, 30) }), (gg, x, y, p) => { // deep moss
+    const gr = gg.createRadialGradient(x, y, 0, x, y, p.r); gr.addColorStop(0, 'rgba(48,104,50,.5)'); gr.addColorStop(1, 'rgba(30,70,36,0)');
+    gg.fillStyle = gr; gg.beginPath(); gg.arc(x, y, p.r, 0, TAU); gg.fill();
+  });
+  strokeBatch(g, S, rng, 46000, PINE_NEEDLES, 30, 1.4, 0.6, 0.1);
+  strokeBatch(g, S, rng, 3000, ['#3a6a34', '#2c5a2c'], 22, 1.2, 0.5, 0.1);
+  scatter(g, S, rng, 300, 14, (r) => ({ s: r.range(5, 12), a: r.range(0, TAU), c: r.pick(['#3a1c0c', '#4e2a12', '#2a1408']) }), (gg, x, y, p) => { // bark chips
+    gg.fillStyle = p.c; gg.globalAlpha = 0.8; gg.beginPath(); gg.ellipse(x, y, p.s, p.s * 0.5, p.a, 0, TAU); gg.fill(); gg.globalAlpha = 1;
+  });
   return c;
 }
 
@@ -2179,6 +2205,7 @@ function makeFalling(rng, sprs, n) {
 function drawFalling(ctx, cam, t, list, P) {
   if (World.quality < 1) return;
   for (const f of list) {
+    if (f.a < 0.02) continue;
     const sway = Math.sin(t * f.sw + f.ph);
     layerSprite(ctx, cam, f.spr, f.x + f.vx * t + sway * 14, f.y + f.vy * t, f.q, f.sz, f.rot + t * f.spin + sway * 0.5, f.a, P);
   }
@@ -2248,74 +2275,277 @@ A.Biomes.meadow = {
   },
 };
 
-// ---- forest (autumn) --------------------------------------------------------
-function buildForestSprites(rng) {
-  const sp = { leaves: [], decayed: [], small: [], needles: [], cones: [], twigs: [], ferns: [], husks: [], pebbles: [], mush: [], moss: [], dew: [] };
-  const kinds = [['oak', 44], ['maple', 56], ['birch', 40]], cols = ['crimson', 'scarlet', 'amber', 'ochre', 'rust', 'russet', 'gold', 'umber'];
-  for (const [k, size] of kinds) for (const col of cols) sp.leaves.push(makeLeaf(rng.sub(k + col), k, col, size * rng.range(0.92, 1.1), false));
-  for (const [k, col] of [['oak', 'umber'], ['maple', 'russet'], ['birch', 'umber'], ['maple', 'amber']]) sp.decayed.push(makeLeaf(rng.sub('d' + k + col), k, col, kinds.find((x) => x[0] === k)[1], true));
-  for (const [k, col] of [['oak', 'amber'], ['birch', 'gold'], ['maple', 'scarlet'], ['birch', 'ochre'], ['oak', 'crimson'], ['maple', 'gold']]) sp.small.push(makeLeaf(rng.sub('s' + k + col), k, col, rng.range(20, 28), rng() < 0.3));
-  for (let i = 0; i < 4; i++) sp.needles.push(makeNeedles(rng.sub('n' + i), ['#b08a4a', '#8a4a22', '#c8a868', '#7c6a2c', '#a05a2a']));
-  for (let i = 0; i < 3; i++) sp.cones.push(makePineCone(rng.sub('cone' + i)));
-  for (const [len, w] of [[60, 4.5], [75, 5], [90, 6], [110, 7], [150, 10]]) sp.twigs.push(makeTwig(rng.sub('t' + len), len, w, ['#24160c', '#5d4228', '#a68a5c']));
-  for (const [len, curve, c] of [[66, 0.6, ['#a2682c', '#4a2812']], [82, -0.7, ['#8e5a24', '#3e2210']], [74, 0.4, ['#b87a34', '#52301a']], [60, -0.5, ['#7c6a2c', '#3a2c14']]]) sp.ferns.push(makeFern(rng.sub('f' + len), len, c, curve));
-  for (const k of ['acorn', 'samara', 'pod', 'acorn']) sp.husks.push(makeHusk(rng.sub('h' + sp.husks.length + k), k));
-  for (const r of [6, 8, 10, 13, 16, 9]) sp.pebbles.push(makePebble(rng.sub('p' + r + sp.pebbles.length), r, rng.pick(STONES)));
-  for (const [style, n] of [['red', 1], ['red', 3], ['brown', 2], ['tan', 3], ['pale', 2], ['red', 2]]) sp.mush.push(makeMushroom(rng.sub('m' + style + n + sp.mush.length), style, n));
-  for (const R of [22, 30, 38]) sp.moss.push(makeMoss(rng.sub('mo' + R), R, ['#9ab456', '#2e4620']));
-  for (const r of [1.4, 2.1, 3]) sp.dew.push(makeDew(r));
-  return sp;
+// ---- forest: golden birch wood + pine forest (autumn) -------------------------
+// Pale birch bark log: white with black lenticel marks, cut end showing rings.
+function makeBirchLog(rng, len, w) {
+  const r = w / 2, x0 = -len / 2, x1 = len / 2;
+  const s = sprite(len + 24, w + 22, SPR_PPU, (g) => {
+    g.beginPath(); g.moveTo(x0 + 2, -r); g.lineTo(x1 - 3, -r); g.quadraticCurveTo(x1 + 1, 0, x1 - 3, r); g.lineTo(x0 + 2, r); g.quadraticCurveTo(x0 - 2, 0, x0 + 2, -r);
+    const gr = g.createLinearGradient(0, -r, 0, r);
+    gr.addColorStop(0, '#d2cab6'); gr.addColorStop(0.28, '#fbf9f0'); gr.addColorStop(0.6, '#ece6d6'); gr.addColorStop(1, '#9d9684');
+    g.fillStyle = gr; g.fill();
+    g.save(); g.clip();
+    g.strokeStyle = 'rgba(120,110,90,.25)'; g.lineWidth = 0.3;
+    for (let i = 0; i < 10; i++) { const y = rng.range(-r, r), x = rng.range(x0, x1 - 20); g.beginPath(); g.moveTo(x, y); g.lineTo(x + rng.range(10, 40), y + rng.range(-0.4, 0.4)); g.stroke(); }
+    for (let i = 0; i < len / 2.2; i++) { // black lenticel marks
+      g.fillStyle = `rgba(14,12,10,${rng.range(0.85, 1)})`; g.beginPath(); g.ellipse(rng.range(x0, x1), rng.range(-r * 0.9, r * 0.9), rng.range(1.2, 4.5), rng.range(0.3, 0.8), 0, 0, TAU); g.fill();
+    }
+    for (let i = 0; i < 3; i++) { // dark bark patches
+      const bx = rng.range(x0 + 6, x1 - 14);
+      g.fillStyle = 'rgba(16,14,12,.85)'; g.beginPath(); g.ellipse(bx, rng.range(-r * 0.55, r * 0.55), rng.range(2, 5), rng.range(r * 0.12, r * 0.3), rng.range(-0.3, 0.3), 0, TAU); g.fill();
+    }
+    g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(x0, -r * 0.55, len, r * 0.25);
+    g.restore();
+    g.strokeStyle = 'rgba(60,54,44,.5)'; g.lineWidth = 0.7;
+    g.beginPath(); g.moveTo(x0 + 2, -r); g.lineTo(x1 - 3, -r); g.moveTo(x0 + 2, r); g.lineTo(x1 - 3, r); g.stroke();
+    const cap = g.createRadialGradient(x1 - 4, -r * 0.2, 0.5, x1 - 3, 0, r); cap.addColorStop(0, '#ecdcb0'); cap.addColorStop(1, '#c4a468');
+    g.fillStyle = cap; g.beginPath(); g.ellipse(x1 - 3, 0, r * 0.3, r * 0.96, 0, 0, TAU); g.fill();
+    g.strokeStyle = 'rgba(110,76,36,.4)'; g.lineWidth = 0.3;
+    for (let k = 1; k < 5; k++) { g.beginPath(); g.ellipse(x1 - 3, 0, r * 0.3 * k / 5, r * 0.96 * k / 5, 0, 0, TAU); g.stroke(); }
+    g.strokeStyle = 'rgba(40,30,20,.55)'; g.lineWidth = 0.6; g.beginPath(); g.ellipse(x1 - 3, 0, r * 0.3, r * 0.96, 0, 0, TAU); g.stroke();
+    g.fillStyle = 'rgba(247,243,230,.95)'; g.strokeStyle = 'rgba(30,26,22,.7)'; g.lineWidth = 0.4; // peeling bark curl
+    g.beginPath(); g.ellipse(rng.range(x0 + 10, x1 - 14), r * rng.range(-0.7, 0.7), 5, 1.6, rng.range(-0.3, 0.3), 0, TAU); g.fill(); g.stroke();
+  });
+  return addShadow(s, { blur: 1.8, dx: 1.2, dy: 1.8, a: 0.5 });
 }
 
-function placeForest(dec, sp, rng, world, seed) {
-  const cs = dec.cs, n = dec.n;
+function makeBirchStump(rng, R) {
+  const s = sprite(R * 2 + 14, R * 2 + 14, SPR_PPU, (g) => {
+    const seed = rng.int(1, 900000);
+    blobPath(g, 0, 0, R, R * 0.96, makeRng(seed), 14, 0.08);
+    const bk = g.createRadialGradient(-R * 0.3, -R * 0.3, R * 0.3, 0, 0, R * 1.05); bk.addColorStop(0, '#fbf9f0'); bk.addColorStop(1, '#a8a190');
+    g.fillStyle = bk; g.fill();
+    for (let i = 0; i < 30; i++) { // black bark marks round the rim
+      const a = rng.range(0, TAU), d = R * rng.range(0.86, 0.97);
+      g.save(); g.translate(Math.cos(a) * d, Math.sin(a) * d); g.rotate(a + Math.PI / 2);
+      g.fillStyle = `rgba(20,18,16,${rng.range(0.6, 0.9)})`; g.beginPath(); g.ellipse(0, 0, rng.range(1.5, 4.5), rng.range(0.4, 1), 0, 0, TAU); g.fill(); g.restore();
+    }
+    const face = g.createRadialGradient(-R * 0.2, -R * 0.25, 0.5, 0, 0, R * 0.8); face.addColorStop(0, '#f0e2b8'); face.addColorStop(0.6, '#dcc590'); face.addColorStop(1, '#c0a066');
+    g.fillStyle = face; g.beginPath(); g.arc(0, 0, R * 0.76, 0, TAU); g.fill();
+    for (let k = 1; k <= 8; k++) {
+      g.strokeStyle = `rgba(116,80,38,${rng.range(0.2, 0.42)})`; g.lineWidth = rng.range(0.3, 0.6); g.beginPath();
+      for (let i = 0; i <= 24; i++) { const a = i / 24 * TAU, rr = R * 0.74 * k / 8 * (1 + 0.04 * Math.sin(a * 3 + k)); i ? g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : g.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+      g.closePath(); g.stroke();
+    }
+    g.strokeStyle = 'rgba(70,44,20,.6)'; g.lineWidth = 0.5;
+    for (let k = 0; k < 3; k++) { const a = rng.range(0, TAU); g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a) * R * 0.7, Math.sin(a) * R * 0.7); g.stroke(); }
+    g.strokeStyle = 'rgba(40,30,20,.5)'; g.lineWidth = 0.7; g.beginPath(); g.arc(0, 0, R * 0.76, 0, TAU); g.stroke();
+    g.fillStyle = 'rgba(255,248,224,.35)'; g.beginPath(); g.ellipse(-R * 0.25, -R * 0.3, R * 0.25, R * 0.1, -0.6, 0, TAU); g.fill();
+  });
+  return addShadow(s, { blur: 2, dx: 1.4, dy: 2, a: 0.5 });
+}
+
+// A bark-covered root running across the ground, optionally mossy.
+function paintRoot(g, rng, pts, w0, w1, mossy) {
+  strokePoly(g, pts, w0, w1, '#1c0e06', 2.2);
+  strokePoly(g, pts, w0, w1, '#5a3418', 0);
+  strokePoly(g, pts.map((q) => [q[0] - 0.25 * w0, q[1] - 0.3 * w0]), w0 * 0.45, w1 * 0.4, 'rgba(160,108,60,.55)', 0);
+  g.strokeStyle = 'rgba(18,8,3,.45)'; g.lineWidth = 0.45;
+  for (let i = 1; i < pts.length - 1; i += 2) {
+    const q = pts[i], r = pts[i + 1], ww = lerp(w0, w1, i / pts.length), nx = -(r[1] - q[1]), ny = r[0] - q[0], nl = Math.hypot(nx, ny) || 1;
+    g.beginPath(); g.moveTo(q[0] + nx / nl * ww * 0.35, q[1] + ny / nl * ww * 0.35); g.lineTo(q[0] - nx / nl * ww * 0.4, q[1] - ny / nl * ww * 0.4); g.stroke();
+  }
+  if (!mossy) return;
+  const sh = pts.map((q, i) => { const ww = lerp(w0, w1, i / pts.length); return [q[0] - ww * 0.2, q[1] - ww * 0.28]; });
+  for (let i = 0; i < pts.length - 1; i++) { // moss carpet on the upper side, in patches
+    if (i % 6 > 3 && rng() < 0.5) continue;
+    const ww = lerp(w0, w1, i / pts.length);
+    for (const [col, k] of [['#2c622e', 0.8], ['#4e8a3c', 0.55], ['#80b254', 0.22]]) {
+      g.strokeStyle = col; g.lineWidth = ww * k; g.beginPath(); g.moveTo(sh[i][0], sh[i][1]); g.lineTo(sh[i + 1][0], sh[i + 1][1]); g.stroke();
+    }
+  }
+}
+
+function makeMossyRoot(rng, L) {
+  const s = sprite(L * 1.5, L * 0.8, 4, (g) => {
+    paintRoot(g, rng, branchPts(rng, -L / 2, rng.range(-5, 5), rng.range(-0.3, 0.3), L, rng.range(-0.05, 0.05)), rng.range(11, 15), 4, true);
+  });
+  return addShadow(s, { blur: 2, dx: 1.4, dy: 2, a: 0.55 });
+}
+
+// Pine trunk base seen from above: bark disc, buttress roots, moss on the shady side.
+function makeTrunkBase(rng, R) {
+  const E = R * 2.7, s = sprite(E * 2 + 10, E * 2 + 10, 4, (g) => {
+    const n = rng.int(5, 7), a0 = rng.range(0, TAU);
+    for (let k = 0; k < n; k++) {
+      const a = a0 + k / n * TAU + rng.range(-0.25, 0.25), len = R * rng.range(1.7, 2.6);
+      paintRoot(g, rng, branchPts(rng, Math.cos(a) * R * 0.5, Math.sin(a) * R * 0.5, a, len, rng.range(-0.1, 0.1)), R * rng.range(0.55, 0.7), 3, rng() < 0.85);
+    }
+    const seed = rng.int(1, 900000);
+    blobPath(g, 0, 0, R, R, makeRng(seed), 16, 0.1);
+    const d = g.createRadialGradient(-R * 0.25, -R * 0.3, R * 0.1, 0, 0, R * 1.05); d.addColorStop(0, '#6a3a1c'); d.addColorStop(0.7, '#4a2610'); d.addColorStop(1, '#241006');
+    g.fillStyle = d; g.fill();
+    g.save(); g.clip();
+    g.strokeStyle = 'rgba(14,6,2,.4)'; g.lineWidth = 0.6;
+    for (let i = 0; i < 30; i++) { const a = i / 30 * TAU + rng.range(-0.05, 0.05); g.beginPath(); g.moveTo(Math.cos(a) * R * 0.25, Math.sin(a) * R * 0.25); g.lineTo(Math.cos(a) * R * 1.05, Math.sin(a) * R * 1.05); g.stroke(); }
+    for (const f of [0.4, 0.6, 0.8, 0.95]) for (let k = 0; k < 4; k++) { // bark plates
+      const a = rng.range(0, TAU), sp = rng.range(0.3, 0.9);
+      g.strokeStyle = 'rgba(20,10,4,.55)'; g.lineWidth = 1.1; g.beginPath(); g.arc(0, 0, R * f, a, a + sp); g.stroke();
+      g.strokeStyle = 'rgba(190,130,80,.28)'; g.lineWidth = 0.6; g.beginPath(); g.arc(-0.4, -0.5, R * f, a, a + sp); g.stroke();
+    }
+    const ma = rng.range(Math.PI * 0.6, Math.PI * 1.4);
+    for (let i = 0; i < 10; i++) { // moss on the shaded side
+      const a = ma + rng.range(-0.8, 0.8), dd = R * rng.range(0.35, 1), rr = R * rng.range(0.15, 0.3);
+      const gr = g.createRadialGradient(Math.cos(a) * dd, Math.sin(a) * dd, 0, Math.cos(a) * dd, Math.sin(a) * dd, rr);
+      gr.addColorStop(0, 'rgba(98,152,62,.9)'); gr.addColorStop(1, 'rgba(36,84,40,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(Math.cos(a) * dd, Math.sin(a) * dd, rr, 0, TAU); g.fill();
+    }
+    g.restore();
+    blobPath(g, 0, 0, R, R, makeRng(seed), 16, 0.1); g.strokeStyle = 'rgba(12,5,2,.6)'; g.lineWidth = 1.2; g.stroke();
+  });
+  return addShadow(s, { blur: 3, dx: 1.6, dy: 2.4, a: 0.55 });
+}
+
+const BIRCH_COLS = ['lemon', 'butter', 'honey', 'gold', 'lemon', 'butter'];
+
+function buildForestSprites(rng) {
+  const b = { leaves: [], small: [], logs: [], stumps: [], twigs: [], tufts: [], ferns: [], mush: [], pebbles: [], husks: [] };
+  const p = { needles: [], cones: [], roots: [], bases: [], moss: [], ferns: [], twigs: [], mush: [], pebbles: [], leaves: [] };
+  for (const [k, size] of [['birch', 36], ['maple', 50], ['birch', 30]]) for (const col of BIRCH_COLS) b.leaves.push(makeLeaf(rng.sub('b' + k + col + size), k, col, size * rng.range(0.92, 1.1), false));
+  for (const [k, col] of [['birch', 'lemon'], ['birch', 'butter'], ['maple', 'gold'], ['birch', 'honey'], ['oak', 'gold'], ['birch', 'lemon'], ['maple', 'lemon']]) b.small.push(makeLeaf(rng.sub('bs' + k + col), k, col, rng.range(18, 26), rng() < 0.25));
+  for (const [len, w] of [[70, 10], [95, 12], [120, 13], [85, 11], [60, 9]]) b.logs.push(makeBirchLog(rng.sub('log' + len), len, w));
+  for (const R of [13, 16, 19, 15]) b.stumps.push(makeBirchStump(rng.sub('stump' + R), R));
+  for (const [len, w] of [[60, 4], [80, 5], [100, 6]]) b.twigs.push(makeTwig(rng.sub('bt' + len), len, w, ['#2a2826', '#c8c0ae', '#f2eee2']));
+  for (let i = 0; i < 6; i++) b.tufts.push(makeGrassTuft(rng.sub('bg' + i), rng.pick([['#a08828', '#f0e08c'], ['#b49a34', '#f6ea9c'], ['#8c8a30', '#e0d27c']])));
+  for (const [len, curve, c] of [[66, 0.6, ['#e6bc48', '#8a6416']], [80, -0.7, ['#d8ae3c', '#7c5812']], [60, 0.4, ['#f0cc5c', '#98701c']]]) b.ferns.push(makeFern(rng.sub('bf' + len), len, c, curve));
+  for (const [style, n] of [['pale', 2], ['tan', 3], ['pale', 3]]) b.mush.push(makeMushroom(rng.sub('bm' + style + n + b.mush.length), style, n));
+  for (const r of [6, 8, 10, 12]) b.pebbles.push(makePebble(rng.sub('bp' + r), r, ['#c8bca0', '#6c6048']));
+  for (const k of ['samara', 'pod', 'samara']) b.husks.push(makeHusk(rng.sub('bh' + b.husks.length + k), k));
+  for (let i = 0; i < 5; i++) p.needles.push(makeNeedles(rng.sub('pn' + i), ['#b8641e', '#d8923c', '#8a4a1e', '#c97a30', '#a05a2a']));
+  for (let i = 0; i < 4; i++) p.cones.push(makePineCone(rng.sub('cone' + i)));
+  for (const L of [90, 120, 150, 105]) p.roots.push(makeMossyRoot(rng.sub('root' + L), L));
+  for (const R of [20, 25, 30]) p.bases.push(makeTrunkBase(rng.sub('base' + R), R));
+  for (const R of [26, 34, 44, 52]) p.moss.push(makeMoss(rng.sub('pm' + R), R, ['#7cb04c', '#1c4020']));
+  for (const [len, curve, c] of [[70, 0.6, ['#4a8a40', '#1a3c1e']], [86, -0.7, ['#3f7a38', '#173418']], [78, 0.4, ['#548f46', '#1e4222']]]) p.ferns.push(makeFern(rng.sub('pf' + len), len, c, curve));
+  for (const [len, w] of [[60, 4.5], [80, 5.5], [100, 6.5]]) p.twigs.push(makeTwig(rng.sub('pt' + len), len, w, ['#1c1008', '#4a3220', '#8e7048']));
+  for (const [style, n] of [['red', 1], ['red', 3], ['brown', 2], ['brown', 3], ['red', 2]]) p.mush.push(makeMushroom(rng.sub('pmu' + style + n + p.mush.length), style, n));
+  for (const r of [7, 10, 13, 17]) p.pebbles.push(makePebble(rng.sub('pp' + r), r, rng.pick(STONES)));
+  for (const [k, col] of [['maple', 'amber'], ['birch', 'gold'], ['oak', 'rust']]) p.leaves.push(makeLeaf(rng.sub('pl' + k + col), k, col, rng.range(24, 32), rng() < 0.4));
+  return { b, p };
+}
+
+// Zone split: a meandering diagonal. d < 0 is birch wood, d > 0 is pine forest.
+const FZ_B = 110;
+function forestD(x, y, z) {
+  const al = (x - y) * 0.7071;
+  return (x + y - z.world) * 0.7071 + z.off + z.a1 * Math.sin(al / 170 + z.p1) + z.a2 * Math.sin(al / 62 + z.p2);
+}
+const forestPine = (x, y, z) => smooth((forestD(x, y, z) + FZ_B) / (2 * FZ_B));
+
+// Low-res world map of the pine weight, used to blend the two ground tiles.
+function forestMask(z, world) {
+  const N = 256, c = mk(N, N), g = g2(c), img = g.createImageData(N, N), d = img.data, ws = world / N;
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const k = (j * N + i) * 4; d[k] = d[k + 1] = d[k + 2] = 255; d[k + 3] = forestPine((i + 0.5) * ws, (j + 0.5) * ws, z) * 255; }
+  g.putImageData(img, 0, 0);
+  return c;
+}
+
+function placeForest(dec, sp, rng, world, seed, z) {
+  const cs = dec.cs, n = dec.n, B = sp.b, Pn = sp.p, s0 = seed % 977;
+  // Count is scaled by the zone weight at the item's own point, with a few strays across the border.
+  const inZ = (x, y, pine) => rng() < 0.05 + 0.95 * (pine ? forestPine(x, y, z) : 1 - forestPine(x, y, z));
   for (let cy = 0; cy < n; cy++) for (let cx = 0; cx < n; cx++) {
     const x0 = cx * cs, y0 = cy * cs, P = () => [x0 + rng() * cs, y0 + rng() * cs];
-    const dens = 0.3 + 1.5 * smooth(vnoise(cx * 0.42, cy * 0.42, seed % 977));
-    if (rng() < 0.3) { const [x, y] = P(); dec.add(0, rng.pick(sp.moss), x, y, rng() * TAU, rng.range(0.8, 1.3), { a: 0.95 }); }
-    for (let k = Math.floor(0.9 + rng()); k-- > 0;) { const [x, y] = P(); dec.add(0, rng.pick(sp.needles), x, y, rng() * TAU, rng.range(0.9, 1.4), { flip: rng() < 0.5 }); }
-    for (let k = Math.floor(1.4 * dens + rng()); k-- > 0;) {
-      const spr = rng() < 0.2 ? rng.pick(sp.decayed) : rng.pick(sp.leaves), [x, y] = P();
-      dec.add(1, spr, x, y, rng() * TAU, rng.range(0.8, 1.25), { flip: rng() < 0.5, a: rng.range(0.92, 1) });
-      placeDew(dec, sp, rng, x, y, spr.rad, 0.25);
-    }
-    for (let k = Math.floor(1.7 * dens + rng()); k-- > 0;) { const [x, y] = P(); dec.add(1, rng.pick(sp.small), x, y, rng() * TAU, rng.range(0.8, 1.3), { flip: rng() < 0.5 }); }
-    if (rng() < 0.22 * dens) { const [x, y] = P(); dec.add(2, sp.twigs[rng() < 0.12 ? 4 : rng.int(0, 3)], x, y, rng() * TAU, rng.range(0.85, 1.25), { flip: rng() < 0.5 }); }
-    if (rng() < 0.28) { const [x, y] = P(); dec.add(2, rng.pick(sp.cones), x, y, rng() * TAU, rng.range(0.9, 1.25), { flip: rng() < 0.5 }); }
-    if (rng() < 0.28 * dens) { const [x, y] = P(); dec.add(2, rng.pick(sp.ferns), x, y, rng() * TAU, rng.range(0.8, 1.3), { flip: rng() < 0.5, a: 0.96 }); }
-    if (rng() < 0.32 * dens) { const [x, y] = P(); dec.add(2, rng.pick(sp.husks), x, y, rng() * TAU, rng.range(0.9, 1.3)); }
-    if (rng() < 0.22) { const [x, y] = P(); dec.add(2, rng.pick(sp.pebbles), x, y, 0, rng.range(0.85, 1.2), { flip: rng() < 0.5 }); }
-    if (rng() < 0.14) { const [x, y] = P(); dec.add(3, rng.pick(sp.mush), x, y, 0, rng.range(0.9, 1.3)); }
+    const dens = 0.3 + 1.5 * smooth(vnoise(cx * 0.42, cy * 0.42, s0));
+    const put = (pine, layer, list, count, sMin, sMax, o) => {
+      for (let k = Math.floor(count + rng()); k-- > 0;) {
+        const [x, y] = P(); if (!inZ(x, y, pine)) continue;
+        const spr = Array.isArray(list) ? rng.pick(list) : list;
+        dec.add(layer, spr, x, y, o && o.norot ? 0 : rng() * TAU, rng.range(sMin, sMax), { flip: rng() < 0.5, a: o && o.a });
+      }
+    };
+    // golden birch wood
+    put(false, 1, B.leaves, 1.9 * dens, 0.8, 1.25, { a: 0.97 });
+    put(false, 1, B.small, 2.6 * dens, 0.8, 1.3);
+    put(false, 1, B.tufts, 1.1, 0.9, 1.7);
+    put(false, 2, B.logs, 0.12, 0.9, 1.25);
+    put(false, 2, B.stumps, 0.05, 0.9, 1.2);
+    put(false, 2, B.twigs, 0.28 * dens, 0.85, 1.25);
+    put(false, 2, B.ferns, 0.14 * dens, 0.8, 1.3, { a: 0.96 });
+    put(false, 2, B.husks, 0.2 * dens, 0.9, 1.3);
+    put(false, 2, B.pebbles, 0.1, 0.85, 1.2, { norot: true });
+    put(false, 3, B.mush, 0.07, 0.9, 1.25, { norot: true });
+    // pine forest
+    put(true, 0, Pn.moss, 0.7, 0.8, 1.3, { a: 0.95 });
+    put(true, 0, Pn.needles, 1.7, 0.9, 1.5);
+    put(true, 2, Pn.roots, 0.2, 0.85, 1.2);
+    put(true, 2, Pn.bases, 0.075, 0.9, 1.15);
+    put(true, 2, Pn.cones, 0.5, 0.9, 1.25);
+    put(true, 2, Pn.ferns, 0.3 * dens, 0.8, 1.3, { a: 0.96 });
+    put(true, 2, Pn.twigs, 0.3 * dens, 0.85, 1.25);
+    put(true, 2, Pn.pebbles, 0.16, 0.85, 1.2, { norot: true });
+    put(true, 1, Pn.leaves, 0.35 * dens, 0.8, 1.2);
+    put(true, 3, Pn.mush, 0.16, 0.9, 1.3, { norot: true });
   }
 }
 
 A.Biomes.forest = {
   habitat: 'land',
-  palette: { bg: '#4a2c14', grade: '#ffc880', fog: '#0c0603' },
+  palette: { bg: '#4a2c14', grade: '#ffd9a0', fog: '#0c0603' },
   depth: { giants: ['wolf', 'bear'], specks: ['mouse', 'squirrel'], fg: [{ kind: 'leaves', cols: ['#c0501e', '#5a1e0e', '#e8a238'] }, { kind: 'ferns', cols: ['#a2682c', '#3a2210', '#c8883a'] }] },
+  // Which half of the forest a point lies in: 'birch' or 'pine' (cheap: two sines).
+  zoneAt(x, y, st) { return st && st.zone ? (forestD(x, y, st.zone) > 0 ? 'pine' : 'birch') : null; },
   build(tier, rng) {
     const world = tier.world || 2600, st = { world };
-    st.tex = forestTexture(rng.seed, 2048); st.texUnits = 512;
+    const zr = rng.sub('zone');
+    st.zone = { world, off: zr.range(-50, 50), a1: zr.range(70, 100), a2: zr.range(25, 42), p1: zr.range(0, TAU), p2: zr.range(0, TAU) };
+    st.texB = birchTexture(rng.seed, 2048); st.texP = pineTexture(rng.seed + 3, 2048); st.texUnits = 512;
+    st.mask = forestMask(st.zone, world);
+    st.tmp = null;
     st.dec = makeDecor(world, 128);
     const sp = buildForestSprites(rng.sub('spr'));
-    placeForest(st.dec, sp, rng.sub('place'), world, rng.seed);
-    st.dapple = dappleTexture(rng.seed + 5, 1024, '#ffc66e', 108);
-    st.glow = makeGlow(48, '#ffd890');
-    st.motes = makeMotes(rng.sub('motes'), 48, { P: 900, vx: [-3, 6], vy: [-4, 3], q: [0.9, 1.5], r: [0.5, 1.2], a: [0.3, 0.8] });
-    st.shaftSpr = makeShaft('#ffc874');
+    placeForest(st.dec, sp, rng.sub('place'), world, rng.seed, st.zone);
+    st.dapB = { dapple: dappleTexture(rng.seed + 5, 1024, '#fff4b8', 128) };
+    st.dapP = { dapple: dappleTexture(rng.seed + 6, 1024, '#a8e8c8', 84) };
+    st.glowB = makeGlow(48, '#ffe69a'); st.glowP = makeGlow(48, '#b8e8d8');
+    st.motesB = makeMotes(rng.sub('motesB'), 40, { P: 900, vx: [-3, 6], vy: [-4, 3], q: [0.9, 1.5], r: [0.5, 1.3], a: [0.3, 0.8] });
+    st.motesP = makeMotes(rng.sub('motesP'), 30, { P: 900, vx: [-2, 3], vy: [-3, 2], q: [0.9, 1.4], r: [0.4, 1], a: [0.25, 0.65] });
+    st.shaftSpr = makeShaft('#b8e8e0');
     st.shafts = [];
-    for (let i = 0; i < 7; i++) st.shafts.push({ x: rng.range(0, 1), w: rng.range(60, 150), a: rng.range(0.06, 0.12), ph: rng.range(0, TAU), sp: rng.range(0.12, 0.35) });
-    st.falling = makeFalling(rng.sub('fall'), [...sp.small, ...sp.leaves.filter((l, i) => i % 3 === 0)], 24);
+    for (let i = 0; i < 6; i++) st.shafts.push({ x: rng.range(0, 1), w: rng.range(50, 120), a0: rng.range(0.04, 0.08), a: 0, ph: rng.range(0, TAU), sp: rng.range(0.12, 0.3) });
+    st.falling = makeFalling(rng.sub('fallB'), [...sp.b.small, ...sp.b.leaves.filter((l, i) => i % 2 === 0)], 22);
+    for (const f of st.falling) { f.pine = false; f.a0 = f.a; }
+    const fp = makeFalling(rng.sub('fallP'), sp.p.leaves, 8);
+    for (const f of fp) { f.pine = true; f.a0 = f.a; st.falling.push(f); }
     return st;
   },
   back(ctx, cam, t, st) {
-    fillTile(ctx, cam, st.tex, st.texUnits, 1, 0, 0, 1);
+    const z = st.zone, v = viewRect(cam, 0), xs = [v.x0, (v.x0 + v.x1) / 2, v.x1], ys = [v.y0, (v.y0 + v.y1) / 2, v.y1];
+    let lo = 1e9, hi = -1e9;
+    for (const x of xs) for (const y of ys) { const d = forestD(x, y, z); if (d < lo) lo = d; if (d > hi) hi = d; }
+    const M = FZ_B + 40;
+    if (lo > M) fillTile(ctx, cam, st.texP, st.texUnits, 1, 0, 0, 1);
+    else if (hi < -M) fillTile(ctx, cam, st.texB, st.texUnits, 1, 0, 0, 1);
+    else { // soft border: pine ground masked by the zone map, over the birch ground
+      const D = A.DPR || 1, w = Math.round(A.W * D), h = Math.round(A.H * D);
+      if (!st.tmp || st.tmp.width !== w || st.tmp.height !== h) st.tmp = mk(w, h);
+      const tg = g2(st.tmp);
+      fillTile(ctx, cam, st.texB, st.texUnits, 1, 0, 0, 1);
+      tg.setTransform(1, 0, 0, 1, 0, 0); tg.globalCompositeOperation = 'source-over'; tg.clearRect(0, 0, w, h);
+      tg.setTransform(D, 0, 0, D, 0, 0);
+      fillTile(tg, cam, st.texP, st.texUnits, 1, 0, 0, 1);
+      tg.globalCompositeOperation = 'destination-in';
+      drawWorldMap(tg, cam, st.mask, st.world);
+      tg.globalCompositeOperation = 'source-over';
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(st.tmp, 0, 0); ctx.restore();
+      ctx.setTransform(D, 0, 0, D, 0, 0);
+    }
     drawDecor(ctx, cam, st.dec, [0, 1, 2, 3], t);
   },
   front(ctx, cam, t, st) {
-    drawDapples(ctx, cam, t, st, { tile: 520, vx: 5, vy: 2.4, alpha: 0.38 });
-    drawShafts(ctx, cam, t, st.shafts, st.shaftSpr);
-    drawMotes(ctx, cam, t, st.motes, st.glow, 900);
+    const wc = smooth((forestD(cam.x, cam.y, st.zone) + 230) / 460), wb = 1 - wc;
+    if (wb > 0.03) {
+      drawDapples(ctx, cam, t, st.dapB, { tile: 700, vx: 3, vy: 1.4, alpha: 0.34 * wb });
+      ctx.save(); ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = 0.14 * wb; ctx.fillStyle = '#ffe9a0'; ctx.fillRect(0, 0, A.W, A.H); ctx.restore(); // soft golden haze
+    }
+    if (wc > 0.03) {
+      drawDapples(ctx, cam, t, st.dapP, { tile: 520, vx: 4, vy: 2, alpha: 0.42 * wc });
+      ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = 0.3 * wc; ctx.fillStyle = '#7fae94'; ctx.fillRect(0, 0, A.W, A.H); ctx.restore(); // deep green shade
+      if (wc > 0.06) { for (const s of st.shafts) s.a = s.a0 * wc; drawShafts(ctx, cam, t, st.shafts, st.shaftSpr); }
+    }
+    drawMotes(ctx, cam, t, st.motesB, st.glowB, 900, undefined, false, wb);
+    drawMotes(ctx, cam, t, st.motesP, st.glowP, 900, undefined, false, wc);
+    for (const f of st.falling) f.a = f.a0 * (f.pine ? wc : wb);
     drawFalling(ctx, cam, t, st.falling, 900);
   },
 };
@@ -2649,6 +2879,11 @@ const World = {
     if (d.fg.length) drawFg(ctx, cam, t, d.fg);
   },
 
+  // 'birch' / 'pine' for the autumn forest, null for biomes without zones. Cheap; safe to call while spawning.
+  zoneAt(x, y) {
+    const b = cur && cur.biome;
+    return b && b.zoneAt ? b.zoneAt(x, y, cur.st) : null;
+  },
   isWater(x, y) {
     const b = cur && cur.biome;
     return !!(b && b.isWater && b.isWater(cur.st, x, y));
