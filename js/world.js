@@ -2361,7 +2361,7 @@ function placeValley(dec, sp, rng, world, seed, tex, creek) {
 
 A.Biomes.valley = {
   habitat: 'land',
-  palette: { bg: '#7f93a0', grade: '#d6ecff', fog: '#101a24' },
+  palette: { bg: '#7f93a0', grade: '#d6ecff', fog: '#1e2224' },   // neutral slate edge: navy read as water
   depth: { giants: ['elk', 'bear'], specks: ['hare', 'fox'], fg: [{ kind: 'blades', cols: ['#34302a', '#8c7c58', '#d8e2e4'] }, { kind: 'blades', cols: ['#2c2a24', '#7a6c4c', '#c8d6da'] }] },
   build(tier, rng) {
     const world = tier.world || 2600, st = { world };

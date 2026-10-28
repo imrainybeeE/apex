@@ -1056,8 +1056,8 @@
       pal: { body: '#8e867a', belly: '#e0d8c9', accent: '#efe9dd', dark: '#2a2622', eye: '#c9a23a' },
     },
     bear: {
-      plan: 'quadruped', habitat: 'land', matte: true, len: 1.55, wid: 0.95, head: 0.82, snout: 0.75, snoutW: 0.5,
-      eye: 0.16, ear: 'round', earSize: 0.75, tail: 'stub', tailLen: 0.6, leg: 0.9, gait: 'walk', flex: 0.6,
+      plan: 'quadruped', habitat: 'land', matte: true, len: 1.8, wid: 0.88, head: 0.7, snout: 1.05, snoutW: 0.42,
+      eye: 0.14, ear: 'round', earSize: 0.5, tail: 'stub', tailLen: 0.5, leg: 1.05, gait: 'walk', flex: 0.5, waist: 0.95,
       muzzle: true, darkLegs: true,
       pal: { body: '#7a5232', belly: '#b08458', accent: '#c49a6a', dark: '#2a1a10', eye: '#1a120c' },
     },

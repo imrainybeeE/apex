@@ -35,7 +35,7 @@
     NPC_REGEN: 0.02, NPC_REGEN_DELAY: 5,
     NIP_DMG: 4, NIP_CD: 1.1, NIP_INVULN: 0.5,            // angry neutral nip = NIP_DMG x sqrt(tier depth)
     ANGRY_TIME: 6, ANGRY_SPEED: 1.15, ANGRY_BUMP_SPEED: 90, ANGRY_LEASH: 400,
-    CARCASS_TIME: 25, CARCASS_GROWTH: 0.5, DECOY_TIME: 3, TIP_TIME: 8,
+    RESTART_HOLD: 0.7, CARCASS_TIME: 25, CARCASS_GROWTH: 0.5, DECOY_TIME: 3, TIP_TIME: 8,
     TUT_BEETLE_DMG: 0.35,                                // tutorial step 5: beetle damage multiplier
   };
 
@@ -274,7 +274,7 @@
 
   // ---------------------------------------------------------------- PATHS
   A.PATHS = {
-    land: { name: 'Land', color: '#8FD14F', blurb: 'From the meadow to the forest and the valley. Become a wolf or a bear.',
+    land: { name: 'Land', title: 'Top of the valley', color: '#8FD14F', blurb: 'From the meadow to the forest and the valley. Become a wolf or a bear.',
       ending: 'You climbed from a leaf-litter ant to the top predator of the valley, and you did it without wrecking the food web.',
       cascade: 'When wolves returned to Yellowstone in 1995, elk grazed less and kept moving, so willows and aspens regrew along the rivers. Beavers, songbirds and fish moved back in. One predator reshaped a whole landscape. Scientists call this a trophic cascade.' },
     sky: { name: 'Sky', color: '#6EC8FF', blurb: 'From the marsh to the canopy and the cliffs. Rule the air as a golden eagle.',

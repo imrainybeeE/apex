@@ -1346,9 +1346,13 @@
       for (let i = 0; i < 3; i++) {
         const q = k * 1.4 - i * 0.2;
         if (q <= 0 || q >= 1) continue;
-        ctx.strokeStyle = rgba(COL.bone, 0.75 * (1 - q));
-        ctx.lineWidth = Math.max(2 / z, r * 0.08) * (1 - q * 0.5);
-        ctx.beginPath(); ctx.arc(m[0], m[1], r * (0.8 + 3.4 * q), a - 1.1, a + 1.1); ctx.stroke();
+        const lw = Math.max(2 / z, r * 0.08) * (1 - q * 0.5), rr = r * (0.8 + 3.4 * q);
+        ctx.strokeStyle = rgba(COL.soil, 0.45 * (1 - q));   // dark under-stroke so it reads on snow
+        ctx.lineWidth = lw + 2.5 / z;
+        ctx.beginPath(); ctx.arc(m[0], m[1], rr, a - 1.1, a + 1.1); ctx.stroke();
+        ctx.strokeStyle = rgba(COL.bone, 0.8 * (1 - q));
+        ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.arc(m[0], m[1], rr, a - 1.1, a + 1.1); ctx.stroke();
       }
       ctx.restore();
     } else if (c.kind === 'spray') {
@@ -1359,8 +1363,9 @@
       ctx.translate(m[0], m[1]);
       ctx.rotate(a);
       const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, reach);
-      gr.addColorStop(0, rgba('#E9F6C8', 0.5 * f));
-      gr.addColorStop(1, rgba(COL.grow, 0));
+      const musk = e.sp === 'snake';   // garter snake musk: ochre, so it shows on green grass
+      gr.addColorStop(0, rgba(musk ? '#F2DC8A' : '#E9F6C8', (musk ? 0.7 : 0.5) * f));
+      gr.addColorStop(1, rgba(musk ? '#B8862E' : COL.grow, 0));
       ctx.fillStyle = gr;
       ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, reach * (0.55 + 0.45 * Math.min(1, k * 3)), -Math.PI / 4, Math.PI / 4); ctx.closePath(); ctx.fill();
       ctx.strokeStyle = rgba(COL.bone, 0.5 * f);

@@ -23,7 +23,7 @@
     FLINCH_FRAC: 0.35, FLINCH_WINDOW: 1.2, FLINCH_TIME: 0.5, WOUND_FLEE: 0.3, WOUND_RECOVER: 0.5,
     REGEN: 0.02, REGEN_DELAY: 4, REGEN_ENERGY: 0.3, NPC_REGEN: 0.02, NPC_REGEN_DELAY: 5,
     NIP_DMG: 4, NIP_CD: 1.1, NIP_INVULN: 0.5, ANGRY_TIME: 6, ANGRY_SPEED: 1.15, ANGRY_BUMP_SPEED: 90, ANGRY_LEASH: 400,
-    CARCASS_TIME: 25, CARCASS_GROWTH: 1, DECOY_TIME: 3, TIP_TIME: 8, TUT_BEETLE_DMG: 0.35,
+    RESTART_HOLD: 0.7, CARCASS_TIME: 25, CARCASS_GROWTH: 1, DECOY_TIME: 3, TIP_TIME: 8, TUT_BEETLE_DMG: 0.35,
   };
   function cf(key) {
     const v = A.CFG && A.CFG[key];
@@ -97,7 +97,7 @@
     stats: newStats(), choices: [], deathInfo: null, pending: null,
     flags: { autoplay: false, bot: 'balanced', debug: false, headless: false, speed: 1, seed: 1,
       skipEditor: false, mute: false, path: null, tier: null, sp: null, tutorial: null },
-    timeScale: 1, hitstopT: 0, transT: 0,
+    timeScale: 1, hitstopT: 0, transT: 0, restartHold: 0,
     // M1.5: guided tutorial (tutorial.js fills it), one-time tip, ground effects such as web zones
     tutorial: { active: false, id: null, text: '', anchor: null, highlight: [], canSkip: false, done: false },
     tip: null, zones: [],
@@ -602,7 +602,11 @@
     const onButton = ev.target && ev.target.tagName === 'BUTTON';
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (KEY_DIR[k]) { keys[KEY_DIR[k]] = true; updateDirKeys(); ev.preventDefault(); return; }
-    if (k === 'r') { if (!ev.repeat) A.restart(); return; }
+    if (k === 'r') {   // in play, hold R (it sits beside E, the ability key); elsewhere it restarts at once
+      if (ev.repeat) return;
+      if (G.mode === 'play' || G.mode === 'intro') { G.restartHold = 0.001; return; }
+      A.restart(); return;
+    }
     if (k === 'Escape' || k === 'p') { if (!ev.repeat) A.togglePause(); return; }
     if (k === 'm') { if (!ev.repeat) mod('Audio', 'toggleMute'); return; }
     if (G.mode === 'dying') { skipDecompose(); return; }
@@ -633,6 +637,7 @@
     const k = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
     if (KEY_DIR[k]) { keys[KEY_DIR[k]] = false; updateDirKeys(); }
     if (k === 'Tab') A.input.ecoView = false;
+    if (k === 'r') G.restartHold = 0;
   }
 
   function setPointer(ev) {
@@ -1324,8 +1329,8 @@
         const push = (touch - d) * 0.35 / d;
         p.x -= dx * push; p.y -= dy * push;
         o.x += dx * push; o.y += dy * push;
-        // bumping a neutral animal at speed makes it angry
-        if (mode === 'play' && o.angryT <= 0 && p.vx * p.vx + p.vy * p.vy > cf('ANGRY_BUMP_SPEED') * cf('ANGRY_BUMP_SPEED') && isNeutral(p, o)) makeAngry(o);
+        // ramming a neutral animal (moving into it at speed) makes it angry; brushing past or being walked into does not
+        if (mode === 'play' && o.angryT <= 0 && (p.vx * dx + p.vy * dy) / d > cf('ANGRY_BUMP_SPEED') && isNeutral(p, o)) makeAngry(o);
       }
     }
   }
@@ -1708,6 +1713,10 @@
 
   function runFrame(dt) {
     renderT += dt;
+    if (G.restartHold > 0) {   // real time, so slow-mo does not stretch the hold
+      if (G.mode !== 'play' && G.mode !== 'intro') G.restartHold = 0;
+      else if ((G.restartHold += dt) >= cf('RESTART_HOLD')) { G.restartHold = 0; A.restart(); }
+    }
     fps += (1 / dt - fps) * 0.05;
     if (G.hitstopT > 0) {
       G.hitstopT -= dt;

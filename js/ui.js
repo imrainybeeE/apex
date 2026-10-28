@@ -209,7 +209,7 @@
     ['Dash', '[Shift] or right click.'],
     ['Ability', '[E] or [Q].'],
     ['Ecosystem view', 'Hold [Tab].'],
-    ['Game', '[Esc] or [P] pauses, [M] mutes, [R] restarts.'],
+    ['Game', '[Esc] or [P] pauses, [M] mutes, hold [R] to restart.'],
   ];
   const TOUCH_KEYS = '<dt class="touch-copy">Steer</dt><dd class="touch-copy">Drag anywhere on the screen.</dd>' +
     '<dt class="touch-copy">Bite, dash, ability</dt><dd class="touch-copy">Use the round buttons at the bottom right.</dd>' +
@@ -351,6 +351,10 @@
     // tutorial and tip bubbles
     R.tut = bubble('tut', true);
     R.tip = bubble('tip', false);
+
+    // hold-R restart: a small bar that fills while R is held
+    R.hold = el('div', 'hold-r', '<span>Hold R to restart</span><i></i>', h);
+    R.holdFill = R.hold.querySelector('i');
   }
 
   function thumb(parent, cls, ic, label, text, inputKey, big) {
@@ -646,7 +650,7 @@
     const p = R.victoryPanel;
     p.style.setProperty('--path', P.color || '#7FE8D4');
     p.innerHTML =
-      '<h2>' + esc(P.name || 'Apex') + '</h2><i class="vbar"></i>' +
+      '<h2>' + esc(P.title || P.name || 'Apex') + '</h2><i class="vbar"></i>' +
       '<p class="ending">' + esc(P.ending || 'You reached the top of the food chain and kept the ecosystem in balance.') + '</p>' +
       (P.cascade ? '<div class="cascade"><h3>Why it worked</h3><p>' + esc(P.cascade) + '</p></div>' : '') +
       '<dl class="vstats">' +
@@ -883,6 +887,46 @@
   }
 
   // ---------- tutorial + tip bubbles ----------
+  function frameHold() {
+    const k = G && G.restartHold > 0 ? Math.min(1, G.restartHold / cfg('RESTART_HOLD', 0.7)) : 0;
+    flag(R.hold, 'on', k > 0);
+    if (k > 0) setStyle(R.holdFill, 'transform', 'scaleX(' + k.toFixed(3) + ')');
+  }
+
+  // ---------- dev menu (backquote): jump to any tier with any playable species, for testing ----------
+  function toggleDev() {
+    if (!R.dev) {
+      R.dev = el('div', 'dev film', '', root);
+      R.dev.setAttribute('role', 'dialog');
+      R.dev.setAttribute('aria-label', 'Dev menu');
+      const tiers = A.TIERS || {};
+      let h = '<div class="dev-head"><strong>Dev menu</strong><span>Esc or backquote closes</span>' +
+        '<button class="btn quiet" data-dev="close" aria-label="Close dev menu">Close</button></div>';
+      Object.keys(tiers).forEach((id, i) => {
+        const t = tiers[id];
+        h += '<div class="dev-row"><span class="dev-tier">' + (i + 1) + '. ' + esc(t.name || id) + '</span>' +
+          (t.players || []).map((sp) => '<button class="btn quiet" data-dev-tier="' + id + '" data-dev-sp="' + sp + '">' + esc(spName(sp)) + '</button>').join('') + '</div>';
+      });
+      h += '<div class="dev-row"><button class="btn quiet" data-dev="grow">Fill growth</button><button class="btn quiet" data-dev="kill">Kill me</button>' +
+        '<button class="btn quiet" data-dev="win">Win</button><button class="btn quiet" data-dev="famine">Force famine</button></div>';
+      R.dev.innerHTML = h;
+      R.dev.addEventListener('click', (e) => {
+        const b = e.target.closest('button');
+        if (!b || !A.debug) return;
+        b.blur();
+        if (b.dataset.devTier) { A.debug.setTier(b.dataset.devTier, b.dataset.devSp); toggleDev(); return; }
+        const d = b.dataset.dev;
+        if (d === 'close') { toggleDev(); return; }
+        if (d === 'grow') A.debug.fillGrowth(); else if (d === 'kill') A.debug.killPlayer();
+        else if (d === 'win') A.debug.win(); else if (d === 'famine') A.debug.forceMishap('famine');
+        toggleDev();
+      });
+    }
+    S.devOn = !S.devOn;
+    R.dev.hidden = !S.devOn;   // hidden attribute, so it closes even if a stale stylesheet is cached
+    flag(R.dev, 'on', S.devOn);
+  }
+
   function frameBubbles(dt) {
     const tu = G && G.tutorial;
     const mode = G && G.mode;
@@ -1159,6 +1203,14 @@
     if (/firefox/i.test(navigator.userAgent || '')) { S.solid = true; root.classList.add('solid-film'); }
 
     buildTitle();
+    window.addEventListener('keydown', (e) => {   // secret dev menu
+      if (e.code === 'Backquote' && !e.repeat && !e.ctrlKey && !e.metaKey) { e.preventDefault(); toggleDev(); return; }
+      if (S.devOn && e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); toggleDev(); return; }
+      if (S.devOn && e.key >= '1' && e.key <= '9' && A.TIERS) {   // number keys jump straight to a tier
+        const id = Object.keys(A.TIERS)[+e.key - 1];
+        if (id && A.debug) { e.stopImmediatePropagation(); A.debug.setTier(id, A.TIERS[id].players[0]); toggleDev(); }
+      }
+    }, true);
     buildHud();
     buildEco();
     buildIntro();
@@ -1208,6 +1260,7 @@
     if (hudOn) {
       frameRibbon(dt);
       frameBubbles(dt);
+      frameHold();
     }
     // ecosystem view (hold Tab, or the pinned toggle for touch)
     const ecoWanted = (G.mode === 'play' || G.mode === 'intro') && !!((A.input && A.input.ecoView) || S.tabHeld || S.ecoPin);

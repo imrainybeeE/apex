@@ -310,7 +310,7 @@ Playtest verdict: core movement, creatures and world art are good; everything ar
   | skink | tail drop | drops a wriggling decoy that hunters chase for 3s; you get +40% speed for 1.5s | 12s |
 
 - **Angry neutrals**: bumping (with speed) into an animal that is neither food nor a threat makes it `angry` for 6s. It chases you and nips for `CFG.NIP_DMG × √depth` damage, scaling up in later tiers (every tier starts the player at the same size, so full depth scaling killed in a few bumps). AI state `angry`; fx shows a small anger mark.
-- **Controls** (final): mouse steers; left click / Space = bite; Shift / right click = dash; E / Q = ability; Tab (hold) = ecosystem view; R restart, Esc/P pause, M mute. Touch: drag steers, with on-screen Bite / Dash / Ability buttons.
+- **Controls** (final): mouse steers; left click / Space = bite; Shift / right click = dash; E / Q = ability; Tab (hold) = ecosystem view; hold R (0.7s) to restart during play, R restarts at once on menus; Esc/P pause, M mute. Backquote (`) opens the dev menu. Touch: drag steers, with on-screen Bite / Dash / Ability buttons.
 - **New player and entity fields**: `hp, maxHp, biteCdT, ability:{id, cd, cdT, activeT}, stunT, slowT, angryT, flinchT`.
 - **New events**: `bite, damage, abilityUse{e,id}, angry{e}, flinch{e}, carcass{e}, tutorialStep{id}`.
 

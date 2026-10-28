@@ -94,7 +94,12 @@
     bite: {
       text: () => (touch() ? 'Too big to swallow? Tap Bite until it drops, then eat the carcass.'
         : 'Too big to swallow? Bite it (click or Space) until it drops, then eat the carcass.'),
-      enter(G) { T.carcassEaten = false; T.carcass = null; T.cat = spawnProps(G, 'caterpillar', 1, 90, 120, null)[0]; G.tutorial.highlight = [T.cat.id]; },
+      enter(G) {
+        T.carcassEaten = false; T.carcass = null;
+        T.cat = spawnProps(G, 'caterpillar', 1, 90, 120, null)[0];
+        if (T.cat && T.cat.maxHp > 0) { T.cat.hp = T.cat.maxHp * 0.4; T.cat.speed *= 0.6; }   // the first kill should take 2-3 bites
+        G.tutorial.highlight = [T.cat ? T.cat.id : -1];
+      },
       check(G) {
         if (T.carcassEaten) return true;
         if (T.carcass && alive(T.carcass)) { G.tutorial.highlight = [T.carcass.id]; return false; }

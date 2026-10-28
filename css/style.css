@@ -565,3 +565,28 @@ kbd {
   .apex-ui *, .apex-ui *::before, .apex-ui *::after { animation-duration: .001s !important; animation-delay: 0s !important; transition-duration: .001s !important; }
   .cap { opacity: 1; }
 }
+
+/* ---------- hold R to restart ---------- */
+.hold-r {
+  position: absolute; left: 50%; bottom: calc(118px + var(--safe-b)); transform: translateX(-50%);
+  display: none; flex-direction: column; align-items: center; gap: 6px; color: var(--bone); text-shadow: var(--shade);
+  font: 700 var(--t-15)/1 var(--f-body);
+}
+.hold-r.on { display: flex; }
+.hold-r i { display: block; width: 140px; height: 6px; border-radius: 3px; background: var(--venom); transform-origin: left; transform: scaleX(0);
+  box-shadow: 0 0 0 2px rgba(27, 22, 18, .55); }
+
+/* ---------- dev menu (backquote) ---------- */
+.dev {
+  position: absolute; top: calc(84px + var(--safe-t)); left: 50%; transform: translateX(-50%); z-index: 20;
+  width: min(620px, calc(100% - 32px)); max-height: calc(100% - 120px); overflow: auto;
+  display: none; padding: 14px 16px; border-radius: 18px; pointer-events: auto; font-size: var(--t-15);
+}
+.dev.on { display: block; }
+.dev[hidden] { display: none !important; }
+.dev-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+.dev-head span { margin-left: auto; }
+.dev-head span { font-size: var(--t-13); opacity: .7; }
+.dev-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 0; border-top: 1px solid rgba(20, 38, 29, .12); }
+.dev-tier { flex: 0 0 150px; font-weight: 700; }
+.dev .btn { padding: 6px 10px; font-size: var(--t-13); }
