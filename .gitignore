@@ -2,3 +2,4 @@ node_modules/
 shots/
 tools/scratch/
 .DS_Store
+dist/
