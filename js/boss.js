@@ -248,45 +248,88 @@
   const X = (x, cam) => (x - cam.x) * cam.zoom + (A.W || 0) / 2 + (cam.shakeX || 0);
   const Y = (y, cam) => (y - cam.y) * cam.zoom + (A.H || 0) / 2 + (cam.shakeY || 0);
 
-  // Telegraphs on the ground (screen space): charge lane, slam ring, swipe arc, roar cone.
+  // Telegraphs on the ground (screen space): charge lane, slam ring, swipe wedge, roar cone.
+  // Every shape is built to read on white snow, on the darkened sky and on the red enraged sky: a hazard-stripe fill,
+  // a dark outer edge and a bright inner edge, so one of the two always contrasts with the ground.
+  const calm = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const HAZ = { fill: '184,36,43', stripe: '255,96,100', edge: 'rgba(38,6,12,0.8)', rim: 'rgba(255,226,226,0.97)' };
+  const COOL = { fill: '14,110,96', stripe: '127,232,212', edge: 'rgba(6,44,40,0.8)', rim: 'rgba(214,255,247,0.97)' };
+
+  // Diagonal stripes across the current clip. `box` is the half-extent to cover; `ph` scrolls them.
+  function stripes(ctx, box, rgb, alpha, ph) {
+    const gap = 30;
+    ctx.save(); ctx.strokeStyle = 'rgba(' + rgb + ',' + alpha.toFixed(3) + ')'; ctx.lineWidth = 9;
+    ctx.beginPath();
+    for (let x = -box * 2 - (ph % gap); x < box * 2; x += gap) { ctx.moveTo(x, box); ctx.lineTo(x + box * 2, -box); }
+    ctx.stroke(); ctx.restore();
+  }
+  // Dark outer edge under a bright inner edge, for whatever path is current.
+  function edge(ctx, pal, w, pulse) {
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.strokeStyle = pal.edge; ctx.lineWidth = w + 5; ctx.stroke();
+    ctx.strokeStyle = pal.rim; ctx.lineWidth = w + pulse; ctx.stroke();
+  }
+  function wedgePath(ctx, R, a0, a1) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, a0, a1); ctx.closePath(); }
+
   function drawGround(ctx, cam, t) {
     if (!fight || !fight.e || !cam || fight.state === 'dying') return;
-    const e = fight.e, z = cam.zoom, st = fight.state, pulse = 0.5 + 0.5 * Math.sin(t * 14);
+    const e = fight.e, z = cam.zoom, st = fight.state, pulse = 0.5 + 0.5 * Math.sin(t * 14), ph = calm ? 0 : t * 90;
     ctx.save();
     if (st === 'chargeWind' && fight.lane) {
       const L = fight.lane, k = clamp(fight.t / windOf('chargeWind'), 0, 1);
       ctx.translate(X(e.x, cam), Y(e.y, cam)); ctx.rotate(L.a);
       const w = L.w * z, len = L.len * z;
-      const g = ctx.createLinearGradient(0, 0, len, 0);
-      g.addColorStop(0, 'rgba(255,90,95,' + (0.18 + 0.25 * k) + ')'); g.addColorStop(1, 'rgba(255,90,95,0.05)');
-      ctx.fillStyle = g; ctx.fillRect(0, -w / 2, len, w);
-      ctx.strokeStyle = 'rgba(255,120,120,' + (0.45 + 0.4 * pulse * k) + ')'; ctx.lineWidth = 3;
-      ctx.strokeRect(0, -w / 2, len, w);
-      for (let i = 1; i <= 4; i++) {   // chevrons showing the direction
-        const x = len * (i / 5) * Math.min(1, k * 1.4);
-        ctx.beginPath(); ctx.moveTo(x - w * 0.18, -w * 0.28); ctx.lineTo(x, 0); ctx.lineTo(x - w * 0.18, w * 0.28); ctx.stroke();
+      ctx.fillStyle = 'rgba(' + HAZ.fill + ',' + (0.3 + 0.3 * k) + ')'; ctx.fillRect(0, -w / 2, len, w);
+      ctx.save(); ctx.beginPath(); ctx.rect(0, -w / 2, len, w); ctx.clip();
+      stripes(ctx, Math.max(w, len), HAZ.stripe, 0.28 + 0.3 * k, ph);
+      ctx.restore();
+      ctx.beginPath(); ctx.rect(0, -w / 2, len, w); edge(ctx, HAZ, 3, 2 * pulse * k);
+      // chevrons pointing down the lane, sliding toward the end as the charge nears
+      const n = 4, step = len / (n + 1), slide = calm ? 0 : (t * 0.9 % 1) * step;
+      ctx.lineWidth = 6; ctx.lineJoin = 'miter';
+      for (let i = 0; i < n; i++) {
+        const x = step * (i + 0.6) + slide, fade = Math.min(1, k * 1.6);
+        if (x > len - 8) continue;
+        ctx.beginPath(); ctx.moveTo(x - w * 0.16, -w * 0.26); ctx.lineTo(x, 0); ctx.lineTo(x - w * 0.16, w * 0.26);
+        ctx.strokeStyle = 'rgba(38,6,12,' + (0.7 * fade) + ')'; ctx.lineWidth = 11; ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,236,236,' + (0.95 * fade) + ')'; ctx.lineWidth = 5; ctx.stroke();
       }
+      ctx.beginPath(); ctx.moveTo(len, -w / 2); ctx.lineTo(len, w / 2);   // end bar: where the lunge stops
+      ctx.strokeStyle = HAZ.edge; ctx.lineWidth = 9; ctx.stroke(); ctx.strokeStyle = HAZ.rim; ctx.lineWidth = 4; ctx.stroke();
     } else if (st === 'slamWind') {
       const R = slamR(e) * z, k = fight.ring;
       ctx.translate(X(e.x, cam), Y(e.y, cam));
-      ctx.fillStyle = 'rgba(255,90,95,' + (0.08 + 0.14 * k) + ')';
+      ctx.fillStyle = 'rgba(' + HAZ.fill + ',' + (0.26 + 0.14 * k) + ')';
       ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
-      ctx.strokeStyle = 'rgba(255,110,110,' + (0.6 + 0.4 * pulse) + ')'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,230,230,0.85)'; ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.arc(0, 0, R * k, 0, TAU); ctx.stroke();   // the closing ring: be out before it reaches the edge
+      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.clip();
+      stripes(ctx, R, HAZ.stripe, 0.22 + 0.2 * k, -ph);
+      ctx.fillStyle = 'rgba(' + HAZ.fill + ',' + (0.3 * k) + ')';   // the closing ring fills toward impact
+      ctx.beginPath(); ctx.arc(0, 0, R * k, 0, TAU); ctx.fill();
+      ctx.restore();
+      ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); edge(ctx, HAZ, 3, 2 * pulse);
+      ctx.beginPath(); ctx.arc(0, 0, Math.max(2, R * k), 0, TAU);   // be out before this reaches the edge
+      ctx.strokeStyle = HAZ.edge; ctx.lineWidth = 11; ctx.stroke(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 5; ctx.stroke();
     } else if (st === 'swipeWind') {
-      const R = (e.r * 1.9) * z, k = clamp(fight.t / windOf('swipeWind'), 0, 1);
+      const R = (e.r * 1.9) * z, k = clamp(fight.t / windOf('swipeWind'), 0, 1), a0 = e.angle - 1.15, a1 = e.angle + 1.15;
       ctx.translate(X(e.x, cam), Y(e.y, cam));
-      ctx.fillStyle = 'rgba(255,90,95,' + (0.12 + 0.25 * k) + ')';
-      ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, e.angle - 1.15, e.angle + 1.15); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(' + HAZ.fill + ',' + (0.3 + 0.1 * k) + ')'; wedgePath(ctx, R, a0, a1); ctx.fill();
+      ctx.save(); wedgePath(ctx, R, a0, a1); ctx.clip(); ctx.rotate(e.angle); stripes(ctx, R, HAZ.stripe, 0.3, ph * 0.5); ctx.restore();
+      ctx.fillStyle = 'rgba(255,96,100,' + (0.35 * k) + ')'; wedgePath(ctx, R, a0, a0 + 2.3 * k); ctx.fill();   // the swing sweeps across
+      wedgePath(ctx, R, a0, a1); edge(ctx, HAZ, 3, 2 * pulse);
+      ctx.beginPath(); ctx.moveTo(Math.cos(a0 + 2.3 * k) * R * 0.25, Math.sin(a0 + 2.3 * k) * R * 0.25); ctx.lineTo(Math.cos(a0 + 2.3 * k) * R, Math.sin(a0 + 2.3 * k) * R);
+      ctx.strokeStyle = HAZ.edge; ctx.lineWidth = 9; ctx.stroke(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.stroke();
     } else if (st === 'roarWind') {
-      const R = e.r * 5 * z, k = clamp(fight.t / windOf('roarWind'), 0, 1);
+      const R = e.r * 5 * z, k = clamp(fight.t / windOf('roarWind'), 0, 1), a0 = e.angle - 0.85, a1 = e.angle + 0.85;
       ctx.translate(X(e.x, cam), Y(e.y, cam));
-      ctx.fillStyle = 'rgba(127,232,212,' + (0.08 + 0.16 * k) + ')';
-      ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, e.angle - 0.85, e.angle + 0.85); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = 'rgba(127,232,212,' + (0.5 + 0.4 * pulse) + ')'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(0, 0, R * k, e.angle - 0.85, e.angle + 0.85); ctx.stroke();
+      ctx.fillStyle = 'rgba(' + COOL.fill + ',' + (0.3 + 0.12 * k) + ')'; wedgePath(ctx, R, a0, a1); ctx.fill();
+      ctx.save(); wedgePath(ctx, R, a0, a1); ctx.clip(); ctx.rotate(e.angle); stripes(ctx, R, COOL.stripe, 0.22, -ph * 0.5); ctx.restore();
+      wedgePath(ctx, R, a0, a1); edge(ctx, COOL, 3, 2 * pulse);
+      for (let i = 0; i < 3; i++) {   // sound waves rolling out of the jaws
+        const f = (k * 1.3 + i / 3) % 1, rr = R * (0.2 + 0.8 * f);
+        ctx.beginPath(); ctx.arc(0, 0, rr, a0, a1);
+        ctx.strokeStyle = 'rgba(6,44,40,' + (0.6 * (1 - f)) + ')'; ctx.lineWidth = 10; ctx.stroke();
+        ctx.strokeStyle = 'rgba(214,255,247,' + (0.95 * (1 - f)) + ')'; ctx.lineWidth = 5; ctx.stroke();
+      }
     }
     ctx.restore();
   }
@@ -352,5 +395,15 @@
     return out;
   }
 
-  A.Boss = { init, update, drawGround, drawScreen, bot, active, stats() { return fight ? { state: fight.state, phase: fight.phase, hp: fight.e ? Math.round(fight.e.hp) : null } : null; } };
+  // Debug hook for tools/boss-shots.mjs: jump the fight into one attack's windup (no timings or damage change).
+  function force(kind) {
+    if (!fight || !fight.e || !A.G || !A.G.player || fight.state === 'arrive' || fight.state === 'dying' || fight.state === 'done') return false;
+    const e = fight.e, p = A.G.player;
+    if (kind === 'charge') fight.lane = { a: Math.atan2(p.y - e.y, p.x - e.x) };
+    if (kind === 'slam') fight.ring = 0;
+    go(kind + 'Wind');
+    return true;
+  }
+
+  A.Boss = { init, update, drawGround, drawScreen, bot, active, force, stats() { return fight ? { state: fight.state, phase: fight.phase, hp: fight.e ? Math.round(fight.e.hp) : null } : null; } };
 })();
