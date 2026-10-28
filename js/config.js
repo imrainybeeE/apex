@@ -26,15 +26,21 @@
     FINAL_HOLD: 45, FINAL_HARMONY: 55, POISON_TIME: 6,
     WORLD: 1200, AIR_ALT: 0.35,
     // combat: health, bite, predator damage (M1.5). hp = HP_PER_MASS x mass; bite damage = BITE_DMG x sqrt(mass) x jaws bonus.
-    HP_PER_MASS: 10, BITE_CD: 0.45, BITE_DMG: 10.35, BITE_SNAP: 0.12, BITE_SNAP_MUL: 1.6,
+    HP_PER_MASS: 10, BITE_CD: 0.45, BITE_DMG: 9, BITE_SNAP: 0.12, BITE_SNAP_MUL: 1.6,
     BITE_ARC: 60, BITE_REACH: 1.4, BITE_JAWS_BONUS: 0.25, FIGHT_RATIO: 1.35, BIG_DMG_FRAC: 0.15,
-    PRED_DMG: 13.8, PRED_INVULN: 0.6,                      // hunter lunge: PRED_DMG x sqrt(hunter mass), then 0.6s invulnerable
+    PRED_DMG: 12, PRED_INVULN: 0.6,                      // hunter lunge: PRED_DMG x sqrt(hunter mass), then 0.6s invulnerable
     FLINCH_FRAC: 0.35, FLINCH_WINDOW: 1.2, FLINCH_TIME: 0.5, // >= 35% maxHp in 1.2s stuns the target for 0.5s
     WOUND_FLEE: 0.3, WOUND_RECOVER: 0.5,                 // hunters flee below 30% hp and return once back to 50%
     REGEN: 0.02, REGEN_DELAY: 4, REGEN_ENERGY: 0.3,      // player: 2% maxHp/s after 4s unhurt while energy > 30%
     NPC_REGEN: 0.02, NPC_REGEN_DELAY: 5,
-    NIP_DMG: 4.6, NIP_CD: 1.1, NIP_INVULN: 0.5,            // angry neutral nip = NIP_DMG x sqrt(tier depth)
+    NIP_DMG: 4, NIP_CD: 1.1, NIP_INVULN: 0.5,            // angry neutral nip = NIP_DMG x sqrt(tier depth)
     ANGRY_TIME: 6, ANGRY_SPEED: 1.15, ANGRY_BUMP_SPEED: 90, ANGRY_LEASH: 400,
+    // Difficulty (title screen): growth = pacing multiplier, playerDmg / enemyDmg scale every attack. Base values = Scary.
+    DIFFICULTY: {
+      easy: { name: 'Easy', growth: 1.5, playerDmg: 1.2, enemyDmg: 1 },
+      normal: { name: 'Normal', growth: 1.25, playerDmg: 1.15, enemyDmg: 1.15 },
+      scary: { name: 'Scary', growth: 1, playerDmg: 1, enemyDmg: 1 },
+    },
     RESTART_HOLD: 0.7, CARCASS_TIME: 25, CARCASS_GROWTH: 0.5, DECOY_TIME: 3, TIP_TIME: 8,
     TUT_BEETLE_DMG: 0.35,                                // tutorial step 5: beetle damage multiplier
   };

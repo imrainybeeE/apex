@@ -386,6 +386,7 @@ At t3_pond, harmony crashes and predators stop being a threat. Hunters probably 
 - **Audio**: Minecraft sounds in every build, including the Google Sites one (the user's call: the site is private).
 - Pond Edge is no longer final; t6 Winter Valley is the final hold.
 - **Death (playtest change)**: the first death in a tier is forgiven: you're reborn in the same tier at 50% growth (`FORGIVE_GROWTH`). Dying there again drops a tier at 40% as before. Reaching a new tier resets this.
+- **Difficulty** (title screen, remembered): Easy = 50% faster growth, your attacks +20%, enemies at base. Normal (default) = 25% faster growth, every attack +15%. Scary = base pacing and damage. `CFG.DIFFICULTY` holds the multipliers; base CFG values are the Scary numbers.
 - **Restart**: hold R for 0.7s during play (R sits next to E); instant on menus. Backquote opens a dev menu to jump to any tier. Marsh and river (sky and sea) come in M3.
 
 # Working rule (from user, binding)

@@ -240,6 +240,11 @@
           '<button class="btn primary big" data-sfx data-act="play">Play</button>' +
           '<button class="btn quiet" data-sfx data-act="how" aria-expanded="false" aria-controls="ui-how">How to play</button>' +
         '</div>' +
+        '<div class="modes" role="group" aria-label="Difficulty">' +
+          '<button class="mode" data-sfx data-mode="easy"><b>Easy</b><span>Faster growth, harder bites</span></button>' +
+          '<button class="mode" data-sfx data-mode="normal"><b>Normal</b><span>The intended run</span></button>' +
+          '<button class="mode" data-sfx data-mode="scary"><b>Scary</b><span>Slow growth, no mercy</span></button>' +
+        '</div>' +
         '<div class="best" id="ui-best"></div>' +
       '</div>' +
       '<div class="how film hit" id="ui-how" role="dialog" aria-label="How to play">' +
@@ -250,9 +255,16 @@
     R.how = s.querySelector('#ui-how');
     R.howBtn = s.querySelector('[data-act="how"]');
     s.querySelector('[data-act="play"]').addEventListener('click', () => { if (A.newRun) A.newRun(); });
+    R.modes = s.querySelectorAll('[data-mode]');
+    R.modes.forEach((b) => b.addEventListener('click', () => { if (A.setDifficulty) A.setDifficulty(b.dataset.mode); syncModes(); }));
+    syncModes();
     R.howBtn.addEventListener('click', () => toggleHow());
     s.querySelector('[data-act="how-close"]').addEventListener('click', () => { toggleHow(false); R.howBtn.focus(); });
     s.addEventListener('keydown', (e) => { if (e.key === 'Escape' && R.how.classList.contains('open')) { e.stopPropagation(); toggleHow(false); R.howBtn.focus(); } });
+  }
+  function syncModes() {
+    const cur = (A.G && A.G.difficulty) || 'normal';
+    (R.modes || []).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === cur)));
   }
   function toggleHow(open) {
     const on = open == null ? !R.how.classList.contains('open') : open;

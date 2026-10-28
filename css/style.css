@@ -590,3 +590,21 @@ kbd {
 .dev-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 0; border-top: 1px solid rgba(20, 38, 29, .12); }
 .dev-tier { flex: 0 0 150px; font-weight: 700; }
 .dev .btn { padding: 6px 10px; font-size: var(--t-13); }
+
+/* ---------- difficulty (title) ---------- */
+.modes { display: flex; gap: 8px; margin-top: 14px; pointer-events: auto; flex-wrap: wrap; }
+.mode {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 128px; padding: 8px 12px;
+  border: 2px solid rgba(239, 232, 218, .28); border-radius: 10px; background: rgba(27, 22, 18, .45); color: var(--bone);
+  font: 400 var(--t-13)/1.25 var(--f-body); text-align: left; cursor: pointer; text-shadow: var(--shade);
+}
+.mode b { font: 800 var(--t-15)/1.1 var(--f-display); }
+.mode span { opacity: .8; }
+.mode:hover { border-color: rgba(239, 232, 218, .55); }
+.mode[aria-pressed="true"] { border-color: var(--leaf); background: rgba(143, 209, 79, .2); }
+.mode:focus-visible { outline: 3px solid var(--spore); outline-offset: 2px; }
+@media (max-width: 520px) {
+  .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .mode { min-width: 0; padding: 7px 8px; }
+  .mode span { font-size: 12px; }
+}

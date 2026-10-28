@@ -18,11 +18,11 @@
     DECOMPOSE_TIME: 4.5, DECOMPOSE_SKIP: 1.5, INTRO_TIME: 2.2, GRACE: 3, EVOLVE_TIME: 1.6,
     FINAL_HOLD: 45, FINAL_HARMONY: 55, WORLD: 1200, ARMOR_RECHARGE: [0, 30, 22, 15],
     POISON_TIME: 6, AIR_ALT: 0.35,
-    HP_PER_MASS: 10, BITE_CD: 0.45, BITE_DMG: 10.35, BITE_SNAP: 0.12, BITE_SNAP_MUL: 1.6, BITE_ARC: 60, BITE_REACH: 1.4,
-    BITE_JAWS_BONUS: 0.25, FIGHT_RATIO: 1.35, BIG_DMG_FRAC: 0.15, PRED_DMG: 13.8, PRED_INVULN: 0.6,
+    HP_PER_MASS: 10, BITE_CD: 0.45, BITE_DMG: 9, BITE_SNAP: 0.12, BITE_SNAP_MUL: 1.6, BITE_ARC: 60, BITE_REACH: 1.4,
+    BITE_JAWS_BONUS: 0.25, FIGHT_RATIO: 1.35, BIG_DMG_FRAC: 0.15, PRED_DMG: 12, PRED_INVULN: 0.6,
     FLINCH_FRAC: 0.35, FLINCH_WINDOW: 1.2, FLINCH_TIME: 0.5, WOUND_FLEE: 0.3, WOUND_RECOVER: 0.5,
     REGEN: 0.02, REGEN_DELAY: 4, REGEN_ENERGY: 0.3, NPC_REGEN: 0.02, NPC_REGEN_DELAY: 5,
-    NIP_DMG: 4.6, NIP_CD: 1.1, NIP_INVULN: 0.5, ANGRY_TIME: 6, ANGRY_SPEED: 1.15, ANGRY_BUMP_SPEED: 90, ANGRY_LEASH: 400,
+    NIP_DMG: 4, NIP_CD: 1.1, NIP_INVULN: 0.5, ANGRY_TIME: 6, ANGRY_SPEED: 1.15, ANGRY_BUMP_SPEED: 90, ANGRY_LEASH: 400,
     RESTART_HOLD: 0.7, CARCASS_TIME: 25, CARCASS_GROWTH: 1, DECOY_TIME: 3, TIP_TIME: 8, TUT_BEETLE_DMG: 0.35,
   };
   function cf(key) {
@@ -97,7 +97,7 @@
     stats: newStats(), choices: [], deathInfo: null, pending: null,
     flags: { autoplay: false, bot: 'balanced', debug: false, headless: false, speed: 1, seed: 1,
       skipEditor: false, mute: false, path: null, tier: null, sp: null, tutorial: null },
-    timeScale: 1, hitstopT: 0, transT: 0, restartHold: 0, deathTier: null, tierDeaths: 0,
+    timeScale: 1, hitstopT: 0, transT: 0, restartHold: 0, deathTier: null, tierDeaths: 0, difficulty: 'normal',
     // M1.5: guided tutorial (tutorial.js fills it), one-time tip, ground effects such as web zones
     tutorial: { active: false, id: null, text: '', anchor: null, highlight: [], canSkip: false, done: false },
     tip: null, zones: [],
@@ -1016,7 +1016,19 @@
     e.kx += dx / d * power; e.ky += dy / d * power;
   }
 
+  // Difficulty: Easy / Normal / Scary (CFG.DIFFICULTY), chosen on the title screen and remembered.
+  A.difficulty = function () {
+    const t = cf('DIFFICULTY') || {};
+    return t[G.difficulty] || t.normal || { growth: 1, playerDmg: 1, enemyDmg: 1 };
+  };
+  A.setDifficulty = function (d) {
+    if (!(cf('DIFFICULTY') || {})[d]) return;
+    G.difficulty = d;
+    lsSet('apex.difficulty', d);
+  };
+
   function growthGain(p, amount) {
+    amount *= A.difficulty().growth;
     p.growth = Math.min(1, p.growth + amount);
     const step = Math.floor(p.growth / 0.05);
     if (step > p.growthStep) { p.growthStep = step; A.emit('growth', { growth: p.growth }); }
@@ -1065,7 +1077,7 @@
 
   function biteDamage(p) {
     const jaws = (p.parts && p.parts.jaws) || 0;
-    return cf('BITE_DMG') * Math.sqrt(p.mass) * (1 + cf('BITE_JAWS_BONUS') * jaws);
+    return cf('BITE_DMG') * Math.sqrt(p.mass) * (1 + cf('BITE_JAWS_BONUS') * jaws) * (p.isPlayer ? A.difficulty().playerDmg : 1);
   }
 
   // Neutral: an animal that is neither food for the player nor able to eat the player.
@@ -1147,7 +1159,7 @@
   // A hunter's lunge connected.
   function hitPlayer(p, h) {
     h.lungeEnd = true;
-    hurtPlayer(p, cf('PRED_DMG') * Math.sqrt(h.mass), h, { kind: 'lunge' });
+    hurtPlayer(p, cf('PRED_DMG') * A.difficulty().enemyDmg * Math.sqrt(h.mass), h, { kind: 'lunge' });
   }
 
   // The bite: a short snap at the arc in front of the mouth. Anything edible is eaten, the rest is damaged.
@@ -1764,6 +1776,8 @@
     const bool = (k) => q.has(k) && q.get(k) !== '0' && q.get(k) !== 'false';
     F.autoplay = bool('autoplay'); F.debug = bool('debug'); F.headless = bool('headless');
     F.skipEditor = bool('skipEditor'); F.mute = bool('mute');
+    G.difficulty = q.get('diff') || lsGet('apex.difficulty') || 'normal';
+    if (!(cf('DIFFICULTY') || {})[G.difficulty]) G.difficulty = 'normal';
     F.bot = q.get('bot') || 'balanced';
     F.speed = q.has('speed') ? Math.max(0.1, Math.min(20, +q.get('speed') || 1)) : 1;
     F.seed = q.has('seed') ? (+q.get('seed') >>> 0) : (Math.random() * 4294967296) >>> 0;
