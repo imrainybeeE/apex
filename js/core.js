@@ -1827,12 +1827,19 @@
     sub('evolve', () => { reborn = false; });
     sub('mishapStart', (d) => rep.mishaps.push({ tierId: G.tierId, type: d.type, t: Math.round(G.time * 10) / 10 }));
     simMode = true;
+    rep.harmonyTrace = [];
     try {
       A.newRun();
+      if (opts.tier && tiersOf()[opts.tier]) {   // start in one tier (eco tests)
+        startTier(opts.tier, opts.sp || tiersOf()[opts.tier].players[0], { growth: 0 });
+        setMode('play');
+      }
       const dt = 1 / 30;
-      let t = 0, guard = 0;
+      let t = 0, guard = 0, nextTrace = 0;
       const maxIter = Math.ceil(maxSec / dt) * 3 + 100;
       while (t < maxSec && guard++ < maxIter) {
+        if (opts.botAfter && t >= opts.botAfter.t) F.bot = opts.botAfter.bot;   // e.g. greedy first, then balanced
+        if (t >= nextTrace) { nextTrace += 10; rep.harmonyTrace.push(Math.round(G.eco.harmony)); }
         const m = G.mode;
         if (m === 'victory' || m === 'title') break;
         if (m === 'editor') { A.closeEditor(); continue; }
