@@ -313,7 +313,7 @@
     const need = cfg('HUNTER_BREED_FED', 3);
     rosterOf(G, 'hunter').forEach((ro) => {
       const n = countOf(w, ro.sp);
-      if (n === 0 || n >= 2.5 * ro.n0 || !canAdd(w, ro, n)) return;
+      if (n === 0 || n >= cfg('HUNTER_BREED_CAP', 2.5) * ro.n0 || !canAdd(w, ro, n)) return;
       const parent = (w.bySp[ro.sp] || []).find((h) => alive(h) && (h.fed || 0) >= need);
       if (!parent) return;
       const spot = offscreenSpot(G, [parent], w.plants);

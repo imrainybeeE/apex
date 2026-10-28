@@ -13,8 +13,8 @@
     LUNGE_MULT: 2.3, WINDUP: 0.35, LUNGE_TIME: 0.35, RECOVER: 0.8,
     // eco model
     HARMONY_BAND: [0.6, 1.45], PRODUCER_BAND: [0.45, 1],
-    K_MULT: 2.0, RG: 0.016,
-    HUNTER_STARVE: 50, HUNTER_BREED_FED: 3, SATIATED_TIME: 6,
+    K_MULT: 2.0, RG: 0.02,
+    HUNTER_STARVE: 50, HUNTER_BREED_FED: 5, HUNTER_BREED_CAP: 1.75, SATIATED_TIME: 6,
     SPECIES_CAP_MULT: 2.6, MAX_ENTITIES: 230, MIGRATION_DELAY: 12,
     GRAZE_RATE: 0.008, REGROW: 0.02, GRAZER_STARVE: 0.03, // extra eco keys (per second)
     MISHAP_COOLDOWN: 25, MAX_MISHAPS: 2, MISHAP_SUSTAIN: 4,
@@ -35,7 +35,7 @@
     NPC_REGEN: 0.02, NPC_REGEN_DELAY: 5,
     NIP_DMG: 4, NIP_CD: 1.1, NIP_INVULN: 0.5,            // angry neutral nip = NIP_DMG x tier depth
     ANGRY_TIME: 6, ANGRY_SPEED: 1.15, ANGRY_BUMP_SPEED: 90, ANGRY_LEASH: 400,
-    CARCASS_TIME: 25, DECOY_TIME: 3, TIP_TIME: 8,
+    CARCASS_TIME: 25, CARCASS_GROWTH: 0.5, DECOY_TIME: 3, TIP_TIME: 8,
     TUT_BEETLE_DMG: 0.35,                                // tutorial step 5: beetle damage multiplier
   };
 
@@ -119,7 +119,7 @@
       id: 't1_litter', depth: 1, path: 'shared', biome: 'litter', habitat: 'land',
       name: 'Leaf Litter', blurb: 'A tiny jungle of fallen leaves. Eat the small, dodge the big.',
       players: ['ant', 'pillbug'], next: ['t2_under'], prev: null,
-      maxScale: 1.7, growthNeeded: 55, drain: 1.4, world: 1200,
+      maxScale: 1.7, growthNeeded: 140, drain: 1.4, world: 1200,
       rgMul: 1.25, // optional: fewer prey here (n0 total 71), so they breed faster to stay forgiving
       roster: [
         P('seed', 6, 16), P('fungus', 10, 14),
@@ -139,7 +139,7 @@
       id: 't2_under', depth: 2, path: 'shared', biome: 'undergrowth', habitat: 'land',
       name: 'Undergrowth', blurb: 'Tall stems and thick shade hide bigger hunters. Stay sneaky.',
       players: ['spider', 'beetle'], next: ['t3_pond'], prev: 't1_litter',
-      maxScale: 1.7, growthNeeded: 70, drain: 1.4, world: 1200,
+      maxScale: 1.7, growthNeeded: 300, drain: 1.4, world: 1200,
       roster: [
         P('clover', 9, 16), P('fungus', 10, 12),
         Gz('aphid', 'graze', 4, 22, 55), Gz('ant', 'swarm', 6, 16, 70), Gz('fly', 'flit', 5, 16, 150),
@@ -161,7 +161,7 @@
       players: ['frog', 'skink'],
       next: [], // M1: final tier. M2 restores next = ['t4_meadow', 't4_marsh', 't4_river'] and removes final.
       prev: 't2_under', final: true,
-      maxScale: 2.0, growthNeeded: 85, drain: 1.4, world: 1200,
+      maxScale: 2.0, growthNeeded: 320, drain: 1.4, world: 1200,
       roster: [
         P('reeds', 12, 14), P('lilypad', 14, 14),
         Gz('fly', 'flit', 3, 20, 150), Gz('cricket', 'hop', 6, 14, 90), Gz('tadpole', 'school', 6, 16, 70),

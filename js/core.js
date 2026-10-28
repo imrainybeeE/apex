@@ -23,7 +23,7 @@
     FLINCH_FRAC: 0.35, FLINCH_WINDOW: 1.2, FLINCH_TIME: 0.5, WOUND_FLEE: 0.3, WOUND_RECOVER: 0.5,
     REGEN: 0.02, REGEN_DELAY: 4, REGEN_ENERGY: 0.3, NPC_REGEN: 0.02, NPC_REGEN_DELAY: 5,
     NIP_DMG: 4, NIP_CD: 1.1, NIP_INVULN: 0.5, ANGRY_TIME: 6, ANGRY_SPEED: 1.15, ANGRY_BUMP_SPEED: 90, ANGRY_LEASH: 400,
-    CARCASS_TIME: 25, DECOY_TIME: 3, TIP_TIME: 8, TUT_BEETLE_DMG: 0.35,
+    CARCASS_TIME: 25, CARCASS_GROWTH: 1, DECOY_TIME: 3, TIP_TIME: 8, TUT_BEETLE_DMG: 0.35,
   };
   function cf(key) {
     const v = A.CFG && A.CFG[key];
@@ -1020,7 +1020,8 @@
     G.score += points;
     G.dna += dna;
     p.energy = Math.min(cf('ENERGY_MAX'), p.energy + Math.min(30, mass * 2.5 + 3));
-    growthGain(p, mass / G.tier.growthNeeded);
+    const share = food.sp === 'carcass' ? cf('CARCASS_GROWTH') : 1;   // a kill feeds you, but slower than its size
+    growthGain(p, mass * share / G.tier.growthNeeded);
     G.combo++; G.comboT = cf('COMBO_WINDOW');
     const s = G.stats;
     const kind = food.fromSp || food.sp;   // a carcass counts as the animal it came from

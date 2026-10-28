@@ -1091,6 +1091,7 @@
     for (const o of cand) {
       const status = smart ? statusOf(o.sp) : 'ok';
       if (smart && mode === 'balanced' && G.final && energy >= 40 && status !== 'high') continue;
+      if (smart && mode === 'balanced' && energy >= 35 && status === 'low') continue;   // let a scarce species recover
       const gap = Math.max(Math.hypot(o.x - p.x, o.y - p.y) - p.r - o.r, 0);
       const val = num(o.mass, o.r * o.r / 16) + 0.3;
       let s = val / (gap + 40 + p.r * 2);
