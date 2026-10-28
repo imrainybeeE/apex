@@ -510,9 +510,12 @@
     clearScope(kind);
     host.innerHTML = '';
     if (kind === 'rebirth') {
-      const low = choices[0] && choices[0].tierId;
-      const pct = Math.round(cfg('RESPAWN_GROWTH', 0.4) * 100);
-      R.rebirthLine.textContent = low ? 'You return to ' + lower(tierName(low)) + ' with ' + pct + '% of your growth.' : '';
+      const c0 = choices[0], low = c0 && c0.tierId;
+      const pct = Math.round((c0 && c0.growth != null ? c0.growth : cfg('RESPAWN_GROWTH', 0.4)) * 100);
+      const same = low && G && low === G.tierId;
+      R.rebirthLine.textContent = !low ? '' : same
+        ? 'You stay in ' + lower(tierName(low)) + ' with ' + pct + '% of your growth. Die here again and you drop a tier.'
+        : 'You return to ' + lower(tierName(low)) + ' with ' + pct + '% of your growth.';
     }
     const paths = [];
     choices.forEach((c) => { if (c.path && paths.indexOf(c.path) < 0) paths.push(c.path); });

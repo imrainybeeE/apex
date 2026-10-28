@@ -384,7 +384,9 @@ At t3_pond, harmony crashes and predators stop being a threat. Hunters probably 
 - **Land animal art is more realistic** than the bugs: natural proportions, longer snouts, smaller eyes, and bigger animals get smaller eyes.
 - **Abilities for the land players** reuse the six mechanics: weasel Pounce (charge), snake Musk spray (spray), fox Mouse pounce (snatch, drawn as a leap), lynx Ambush leap (charge), wolf Howl (wide cone slow, drawn as sound arcs), bear Brace (roll: 2s untouchable, knockback).
 - **Audio**: Minecraft sounds in every build, including the Google Sites one (the user's call: the site is private).
-- Pond Edge is no longer final; t6 Winter Valley is the final hold. Marsh and river (sky and sea) come in M3.
+- Pond Edge is no longer final; t6 Winter Valley is the final hold.
+- **Death (playtest change)**: the first death in a tier is forgiven: you're reborn in the same tier at 50% growth (`FORGIVE_GROWTH`). Dying there again drops a tier at 40% as before. Reaching a new tier resets this.
+- **Restart**: hold R for 0.7s during play (R sits next to E); instant on menus. Backquote opens a dev menu to jump to any tier. Marsh and river (sky and sea) come in M3.
 
 # Working rule (from user, binding)
 No subagent swarms and no Workflow runs. Spawning a single subagent when it genuinely helps is fine, no need to announce it.

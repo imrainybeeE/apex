@@ -14,7 +14,7 @@
   const CFG_DEFAULT = {
     PLAYER_BASE_R: 12, PLAYER_SPEED: 150, VIEW_R_MULT: 26, EAT_RATIO: 0.92, ENERGY_MAX: 100,
     DASH_MULT: 2.6, DASH_TIME: 0.25, DASH_CD: 1.1, DASH_COST: 4, STARVE_GRACE: 4, COMBO_WINDOW: 2.2,
-    SATIATED_TIME: 6, RESPAWN_GROWTH: 0.4, START_DNA: 15, EVOLVE_DNA: 15, DNA_PER_MASS: 0.6,
+    SATIATED_TIME: 6, RESPAWN_GROWTH: 0.4, FORGIVE_GROWTH: 0.5, START_DNA: 15, EVOLVE_DNA: 15, DNA_PER_MASS: 0.6,
     DECOMPOSE_TIME: 4.5, DECOMPOSE_SKIP: 1.5, INTRO_TIME: 2.2, GRACE: 3, EVOLVE_TIME: 1.6,
     FINAL_HOLD: 45, FINAL_HARMONY: 55, WORLD: 1200, ARMOR_RECHARGE: [0, 30, 22, 15],
     POISON_TIME: 6, AIR_ALT: 0.35,
@@ -97,7 +97,7 @@
     stats: newStats(), choices: [], deathInfo: null, pending: null,
     flags: { autoplay: false, bot: 'balanced', debug: false, headless: false, speed: 1, seed: 1,
       skipEditor: false, mute: false, path: null, tier: null, sp: null, tutorial: null },
-    timeScale: 1, hitstopT: 0, transT: 0, restartHold: 0,
+    timeScale: 1, hitstopT: 0, transT: 0, restartHold: 0, deathTier: null, tierDeaths: 0,
     // M1.5: guided tutorial (tutorial.js fills it), one-time tip, ground effects such as web zones
     tutorial: { active: false, id: null, text: '', anchor: null, highlight: [], canSkip: false, done: false },
     tip: null, zones: [],
@@ -147,10 +147,12 @@
     return out;
   };
 
+  // The first death in a tier is forgiven: reborn in the same tier at FORGIVE_GROWTH. Dying there again drops a tier.
   function rebirthChoices() {
-    const lt = A.lowerTier(G.tierId);
+    const forgive = G.tierDeaths <= 1;
+    const lt = forgive ? G.tierId : A.lowerTier(G.tierId);
     const t = tiersOf()[lt];
-    return playersOf(t).map((sp) => ({ sp, tierId: lt, path: t.path }));
+    return playersOf(t).map((sp) => ({ sp, tierId: lt, path: t.path, growth: cf(forgive ? 'FORGIVE_GROWTH' : 'RESPAWN_GROWTH') }));
   }
 
   function findRoster(tier, sp) {
@@ -351,7 +353,7 @@
     G.score = 0; G.combo = 0; G.comboT = 0; G.deaths = 0;
     G.dna = cf('START_DNA');
     G.time = 0; G.tierTime = 0; G.path = null; G.final = false; G.finalHold = 0;
-    G.lineage = []; G.stats = newStats(); G.choices = []; G.deathInfo = null; G.hitstopT = 0;
+    G.lineage = []; G.stats = newStats(); G.choices = []; G.deathInfo = null; G.hitstopT = 0; G.deathTier = null; G.tierDeaths = 0;
     if (!keepCreature) G.creature = newCreature();
   }
 
@@ -469,6 +471,8 @@
     p.alive = false;
     needCompact = true;
     G.deaths++;
+    if (G.deathTier !== G.tierId) { G.deathTier = G.tierId; G.tierDeaths = 0; }
+    G.tierDeaths++;
     if (killer) { killer.lastAte = G.time; killer.biteT = 0.25; killer.hungerT = 0; }
     G.deathInfo = {
       cause, killerSp: killer ? killer.sp : null, x: p.x, y: p.y, sp: p.sp, r: p.r,
@@ -542,13 +546,14 @@
     if (mode === 'evolveChoice') {
       G.lineage.push({ sp: p.sp, tierId: G.tierId, pal: G.creature.pal, parts: p.parts, outcome: 'evolved' });
       if (c.path && c.path !== 'shared') G.path = c.path;
+      G.deathTier = null; G.tierDeaths = 0;   // a new tier: its first death is forgiven again
       G.pending = { tierId: c.tierId, sp: c.sp, growth: 0 };
       const from = G.tierId;
       setMode('evolving');
       A.emit('evolve', { from, to: c.tierId, path: G.path });
     } else {
       const tid = c.tierId || A.lowerTier(G.tierId);
-      startTier(tid, sp, { growth: cf('RESPAWN_GROWTH') });
+      startTier(tid, sp, { growth: c.growth != null ? c.growth : cf('RESPAWN_GROWTH') });
       setMode('intro');
       A.emit('rebirth', { sp, tierId: tid });
     }
@@ -1894,6 +1899,7 @@
     setTier(id, sp) {
       if (!tiersOf()[id]) return false;
       if (G.mode === 'title' || G.mode === 'victory' || G.mode === null) resetRunState(false);
+      G.deathTier = null; G.tierDeaths = 0;
       startTier(id, sp, { growth: 0 });
       setMode('play');
       return true;

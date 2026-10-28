@@ -2577,6 +2577,6 @@
   A.FX = {
     init, update, drawWorld, drawScreen, drawOverlay, drawDecompose, drawEvolve,
     burst, text, shake, flash,
-    stats() { return { particles: S.active, texts: S.texts.length, dives: S.dives.length }; },
+    stats() { return { particles: S.active, texts: S.texts.length, dives: S.dives.length, casts: S.casts.map((c) => c.kind + ":" + c.t.toFixed(2) + "/" + c.dur) }; },
   };
 })();
