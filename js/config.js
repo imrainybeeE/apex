@@ -146,6 +146,7 @@
   const P = (sp, r, n0) => E(sp, 'producer', 'static', r, n0, 0);
   const Gz = (sp, beh, r, n0, speed) => E(sp, 'grazer', beh, r, n0, speed);
   const H = (sp, beh, r, n0, speed) => E(sp, 'hunter', beh, r, n0, speed);
+  const Z = (entry, zone) => Object.assign(entry, { zone });   // keep an entry in one zone of a zoned biome
 
   A.TIERS = {
     t1_litter: {
@@ -236,11 +237,11 @@
       name: 'Autumn Forest', blurb: 'Falling leaves and ripe berries. Wolves and a bear are fattening up for winter.',
       players: ['fox', 'lynx'], next: ['t6_valley'], prev: 't4_meadow',
       maxScale: 1.7, growthNeeded: 360, drain: 1.4, world: 1200,
-      roster: [
+      roster: [   // two zones (world.js): birch wood and pine forest, each with its own animals
         P('berries', 12, 16),
-        Gz('mouse', 'scurry', 4, 22, 95), Gz('squirrel', 'scurry', 7, 14, 110), Gz('snake', 'graze', 8, 10, 70),
-        Gz('rabbit', 'hop', 9, 12, 110), Gz('grouse', 'flock', 13, 7, 120), Gz('hare', 'hop', 16, 6, 125),
-        H('wolverine', 'chase', 30, 1, 125), H('wolf', 'pack', 32, 2, 130), H('bear', 'charge', 55, 1, 115),
+        Z(Gz('mouse', 'scurry', 4, 22, 95), 'pine'), Z(Gz('squirrel', 'scurry', 7, 14, 110), 'pine'), Z(Gz('snake', 'graze', 8, 10, 70), 'birch'),
+        Z(Gz('rabbit', 'hop', 9, 12, 110), 'birch'), Z(Gz('grouse', 'flock', 13, 7, 120), 'birch'), Z(Gz('hare', 'hop', 16, 6, 125), 'pine'),
+        Z(H('wolverine', 'chase', 30, 1, 125), 'pine'), Z(H('wolf', 'pack', 32, 2, 130), 'birch'), H('bear', 'charge', 55, 1, 115),
       ],
       mishaps: {
         famine: { title: 'Lean Autumn', text: 'The forest ran short of prey, so the wolves and the bear are desperate and coming for you.' },

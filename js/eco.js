@@ -139,9 +139,21 @@
     });
   }
 
+  // Tiers with zones (the autumn forest's birch and pine): an entry's `zone` keeps it on its side of the map.
+  function inZone(ro, x, y) {
+    if (!ro || !ro.zone || !(A.World && A.World.zoneAt)) return true;
+    const z = A.World.zoneAt(x, y);
+    return !z || z === ro.zone;
+  }
+  function zonePlants(ro, plants) {
+    if (!ro || !ro.zone) return plants;
+    const list = plants.filter((p) => inZone(ro, p.x, p.y));
+    return list.length ? list : plants;
+  }
+
   function spawnGrazers(G, w) {
-    const plants = w.plants;
     rosterOf(G, 'grazer').forEach((ro) => {
+      const plants = zonePlants(ro, w.plants);
       for (let i = 0; i < ro.n0; i++) {
         const spot = offscreenSpotAnywhere(G, plants);
         spawnEnt(ro.sp, ro, spot.x, spot.y);
@@ -167,10 +179,14 @@
     let k = 0;
     hunters.forEach((ro) => {
       for (let i = 0; i < ro.n0; i++, k++) {
-        const ang = base + (k + rnd() * 0.6) / Math.max(1, total) * Math.PI * 2;
-        const dist = minR + rnd() * Math.max(0, maxR - minR);
-        const e = spawnEnt(ro.sp, ro, clamp(mid + Math.cos(ang) * dist, WALL, world - WALL),
-          clamp(mid + Math.sin(ang) * dist, WALL, world - WALL));
+        let x = mid, y = mid;
+        for (let tries = 0; tries < 10; tries++) {   // a zoned hunter starts on its own side
+          const ang = base + (k + rnd() * 0.6) / Math.max(1, total) * Math.PI * 2 + tries * 0.7;
+          const dist = minR + rnd() * Math.max(0, maxR - minR);
+          x = clamp(mid + Math.cos(ang) * dist, WALL, world - WALL); y = clamp(mid + Math.sin(ang) * dist, WALL, world - WALL);
+          if (inZone(ro, x, y)) break;
+        }
+        const e = spawnEnt(ro.sp, ro, x, y);
         if (e) seedHunger(G, e);
       }
     });
@@ -256,7 +272,7 @@
   // ------------------------------------------------------------ births, starvation, migration
   function growSpot(G, w, ro) {
     const kin = w.bySp[ro.sp] || [];
-    return offscreenSpot(G, kin, w.plants);
+    return offscreenSpot(G, kin, zonePlants(ro, w.plants));
   }
 
   function addOne(G, w, ro) {
