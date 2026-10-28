@@ -24,6 +24,9 @@
     horn: '<path d="M5 18c0-6 4-12 14-12-1 8-5 13-10 13z" fill="currentColor"/>',
     tongue: '<path d="M4 15c5 0 8-1 12-5" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"/><circle cx="18.5" cy="8" r="2.8" fill="currentColor"/>',
     tail: '<path d="M4 17c3-8 6 4 9-3s4-2 7-7" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"/>',
+    howl: '<path d="M4 12h3l5-5v10l-5-5" fill="currentColor"/><path d="M15 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+    pounce: '<ellipse cx="12" cy="15.5" rx="4.5" ry="3.6" fill="currentColor"/><circle cx="6.2" cy="10" r="2" fill="currentColor"/><circle cx="10" cy="6.6" r="2" fill="currentColor"/><circle cx="14" cy="6.6" r="2" fill="currentColor"/><circle cx="17.8" cy="10" r="2" fill="currentColor"/>',
+    brace: '<path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.2-7.5 9.5-4.3-1.3-7.5-4.9-7.5-9.5V6z" fill="currentColor"/>',
     star: '<path d="M12 3l2.4 6 6.6.5-5 4.3 1.6 6.4L12 16.5 6.4 20.2 8 13.8 3 9.5 9.6 9z" fill="currentColor"/>',
     famine: '<path d="M3 11h18a9 9 0 0 1-18 0z M7 5c0 1.5 2 1.5 2 3M12 4c0 1.5 2 1.5 2 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
     boom: '<path d="M12 20V6M6 12l6-6 6 6M5 20h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
@@ -35,6 +38,7 @@
   const MISHAP_COLORS = { famine: '#8A6D00', boom: '#3F7A1C', disease: '#2E7D4F', barren: '#7A6A3D', surge: '#B8242B' };
   const ABILITY_ICON = { spray: 'spray', roll: 'roll', web: 'web', horn: 'horn', tongue: 'tongue', tail: 'tail' };
   const ABILITY_BY_SP = { ant: 'spray', pillbug: 'roll', spider: 'web', beetle: 'horn', frog: 'tongue', skink: 'tail' };
+  const ICON_BY_SP = { wolf: 'howl', fox: 'pounce', weasel: 'pounce', lynx: 'pounce', bear: 'brace' };   // land species reuse mechanics
   const ABILITY_NAME = { spray: 'Formic spray', roll: 'Roll up', web: 'Web throw', horn: 'Horn charge', tongue: 'Tongue snatch', tail: 'Tail drop' };
 
   let G = null;          // latest game state
@@ -863,11 +867,12 @@
     const kind = ab ? abilityKindOf(p.sp, ab.id) : '';
     flag(R.abil, 'none', !ab);
     if (ab) {
-      if (S.abilityKind !== kind) {
-        S.abilityKind = kind;
+      if (S.abilityKind !== p.sp + kind) {
+        S.abilityKind = p.sp + kind;
         const svg = R.abil.querySelector('svg.ico');
-        if (svg) svg.innerHTML = ICONS[ABILITY_ICON[kind]] || ICONS.star;
-        R.abil.setAttribute('aria-label', ABILITY_NAME[kind] || 'Ability');
+        if (svg) svg.innerHTML = ICONS[ICON_BY_SP[p.sp] || ABILITY_ICON[kind]] || ICONS.star;
+        const info = abilityOf(p.sp);
+        R.abil.setAttribute('aria-label', (info && info.name) || ABILITY_NAME[kind] || 'Ability');
       }
       const cd = +ab.cd > 0 ? +ab.cd : 1;
       const ready = !(+ab.cdT > 0);
