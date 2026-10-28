@@ -1201,6 +1201,70 @@
     ctx.restore();
   }
 
+  // Spring meadow grass: a tuft of fresh blades with a few seed heads; grazing shortens and thins it.
+  PLANT.grass = function (ctx, e, t, look, am) {
+    const P = V.P, nb = Math.max(4, Math.round((12 + Math.floor(rnd(e.id, 10) * 5)) * (0.35 + 0.65 * am)));
+    const sc = 0.45 + 0.55 * am;
+    ctx.fillStyle = C(P.dark, 0, 0.28); disc(ctx, 0, 0, 0.16);
+    for (let i = 0; i < nb; i++) {
+      const a = i / nb * TAU + (rnd(e.id, 20 + i) - 0.5) * 0.6;
+      const len = (0.5 + 0.45 * rnd(e.id, 40 + i)) * sc;
+      const bend = (rnd(e.id, 60 + i) - 0.5) * 1.1 + Math.sin(t * 1.5 + i * 0.7 + rnd(e.id, 5) * 6) * 0.09;
+      const tipx = Math.cos(a + bend * 0.5) * len, tipy = Math.sin(a + bend * 0.5) * len;
+      const cx = Math.cos(a - bend * 0.3) * len * 0.5, cy = Math.sin(a - bend * 0.3) * len * 0.5;
+      const wd = 0.06 * (0.7 + 0.5 * rnd(e.id, 80 + i)), nx = -Math.sin(a), ny = Math.cos(a);
+      ctx.fillStyle = C(i % 3 === 0 ? P.belly : P.body, [-0.18, 0.04, 0.2][i % 3]);
+      ctx.beginPath();
+      ctx.moveTo(nx * wd, ny * wd);
+      ctx.quadraticCurveTo(cx + nx * wd, cy + ny * wd, tipx, tipy);
+      ctx.quadraticCurveTo(cx - nx * wd, cy - ny * wd, -nx * wd, -ny * wd);
+      ctx.fill();
+      if (i % 5 === 1 && am > 0.4) { // seed head
+        ctx.save(); ctx.translate(tipx, tipy); ctx.rotate(a + bend * 0.5);
+        blob(ctx, 0, 0, 0.09, 0.035, P.accent, 0, 0, 0.3);
+        ctx.restore();
+      }
+    }
+  };
+
+  // Autumn bilberry bush: a ring of rust-tinged leaves around clusters of dark blue berries.
+  PLANT.berries = function (ctx, e, t, look, am) {
+    const P = V.P, nl = 11 + Math.floor(rnd(e.id, 10) * 4);
+    ctx.fillStyle = C(P.dark, 0, 0.3); disc(ctx, 0, 0, 0.62);
+    for (let i = 0; i < nl; i++) {
+      const a = i / nl * TAU + rnd(e.id, 20 + i) * 0.4, d = 0.32 + 0.28 * rnd(e.id, 30 + i);
+      const sway = Math.sin(t * 1.1 + i) * 0.04;
+      blob(ctx, Math.cos(a) * d, Math.sin(a) * d, 0.2, 0.11, i % 4 === 0 ? P.accent : P.body, a + sway, (rnd(e.id, 50 + i) - 0.5) * 0.3, 0.25);
+    }
+    const nb = am < 0.05 ? 0 : Math.ceil((9 + Math.floor(rnd(e.id, 11) * 5)) * am);
+    for (let i = 0; i < nb; i++) {
+      const a = i * 2.4 + rnd(e.id, 70 + i), d = Math.sqrt((i + 0.5) / 14) * 0.48;
+      blob(ctx, Math.cos(a) * d, Math.sin(a) * d, 0.085, 0.085, P.belly, 0, 0, 0.7);
+      ctx.fillStyle = C(P.dark, 0, 0.6); disc(ctx, Math.cos(a) * d + 0.02, Math.sin(a) * d + 0.02, 0.018);
+    }
+  };
+
+  // Winter willow: a shrub of reddish bare twigs with a few pale, frosted leaves; grazing strips the leaves.
+  PLANT.willow = function (ctx, e, t, look, am) {
+    const P = V.P, ns = 7 + Math.floor(rnd(e.id, 10) * 3);
+    ctx.fillStyle = C(P.dark, 0, 0.3); disc(ctx, 0, 0, 0.22);
+    ctx.lineCap = 'round';
+    for (let i = 0; i < ns; i++) {
+      const a = i / ns * TAU + (rnd(e.id, 20 + i) - 0.5) * 0.5;
+      const len = 0.7 + 0.3 * rnd(e.id, 30 + i), bend = (rnd(e.id, 40 + i) - 0.5) * 0.6 + Math.sin(t * 0.9 + i) * 0.03;
+      const tx = Math.cos(a + bend) * len, ty = Math.sin(a + bend) * len;
+      ctx.strokeStyle = C(P.accent, (i % 3 - 1) * 0.12); ctx.lineWidth = 0.05;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(Math.cos(a) * len * 0.5, Math.sin(a) * len * 0.5, tx, ty); ctx.stroke();
+      const nlv = Math.round(5 * am);
+      for (let k = 1; k <= nlv; k++) {
+        const u = k / 6, lx = Math.cos(a + bend * u) * len * u, ly = Math.sin(a + bend * u) * len * u;
+        const side = k % 2 ? 1 : -1;
+        blob(ctx, lx - Math.sin(a) * 0.06 * side, ly + Math.cos(a) * 0.06 * side, 0.1, 0.035, k % 2 ? P.body : P.belly, a + side * 0.6, 0.05, 0.35);
+      }
+      ctx.fillStyle = 'rgba(240,248,255,.85)'; disc(ctx, tx, ty, 0.03); // frost bead at the tip
+    }
+  };
+
   PLANT.carrion = function (ctx, e, t, look, am) {
     const P = V.P, sc = 0.45 + 0.55 * am, n = 9;
     const ga = ctx.globalAlpha;
@@ -1351,6 +1415,18 @@
   def('lilypad', {
     plan: 'plant', variant: 'lilypad', habitat: 'water', len: 1.0, wid: 1.0, noShadow: true,
     pal: { body: '#3d9a52', belly: '#8ad48c', accent: '#ff93bd', dark: '#12401f', eye: '#fff' },
+  });
+  def('grass', {
+    plan: 'plant', variant: 'grass', habitat: 'land', len: 1.1, wid: 1.1, noShadow: true,
+    pal: { body: '#7fc04a', belly: '#b4e07a', accent: '#d9cf8a', dark: '#2c5a1e', eye: '#fff' },
+  });
+  def('berries', {
+    plan: 'plant', variant: 'berries', habitat: 'land', len: 1.05, wid: 1.05,
+    pal: { body: '#4f7a34', belly: '#3a4f9c', accent: '#b8542a', dark: '#1f3318', eye: '#fff' },
+  });
+  def('willow', {
+    plan: 'plant', variant: 'willow', habitat: 'land', len: 1.15, wid: 1.15,
+    pal: { body: '#9fb79a', belly: '#d4dfcf', accent: '#a0442c', dark: '#2a2420', eye: '#fff' },
   });
   def('carrion', {
     plan: 'plant', variant: 'carrion', habitat: 'land', len: 1.0, wid: 0.8, noShadow: true,

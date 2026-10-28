@@ -1001,5 +1001,83 @@
       plan: 'serpent', habitat: 'land', len: 2.0, wid: 0.42, noShadow: true,
       pal: { body: '#76913c', belly: '#e8e3a0', accent: '#f1d23a', dark: '#1d2a14', eye: '#e6c23a' },
     },
+    // M2 land path. More natural proportions than the bugs: smaller eyes, longer snouts, bigger animals get smaller eyes.
+    mouse: {
+      plan: 'quadruped', habitat: 'land', len: 1.3, wid: 0.55, head: 0.78, snout: 1.0, snoutW: 0.28,
+      eye: 0.3, ear: 'round', earSize: 1.35, tail: 'longthin', tailLen: 1.15, leg: 0.65, gait: 'trot', flex: 1.1,
+      whiskers: true, bellySide: true,
+      pal: { body: '#8c6a4a', belly: '#e9dcc6', accent: '#e6a1a6', dark: '#2a1c12', eye: '#120c08' },
+    },
+    vole: {
+      plan: 'quadruped', habitat: 'land', len: 1.2, wid: 0.64, head: 0.8, snout: 0.6, snoutW: 0.42,
+      eye: 0.22, ear: 'tiny', tail: 'short', tailLen: 0.7, leg: 0.6, gait: 'trot', flex: 0.9, whiskers: true,
+      pal: { body: '#6b5642', belly: '#ab9984', accent: '#d9a0a0', dark: '#231a12', eye: '#100b08' },
+    },
+    rabbit: {
+      plan: 'quadruped', habitat: 'land', len: 1.3, wid: 0.74, head: 0.78, snout: 0.55, snoutW: 0.45,
+      eye: 0.28, ear: 'long', earSize: 1.15, tail: 'stub', tailLen: 1.1, tailTip: 'light', leg: 0.9, gait: 'bound',
+      whiskers: true, bellySide: true,
+      pal: { body: '#8e7658', belly: '#efe6d6', accent: '#e8b0b0', dark: '#2a2016', eye: '#1a120a' },
+    },
+    hare: {
+      plan: 'quadruped', habitat: 'land', len: 1.45, wid: 0.66, head: 0.76, snout: 0.6, snoutW: 0.42,
+      eye: 0.26, ear: 'long', earSize: 1.35, tail: 'stub', tailTip: 'light', leg: 1.1, gait: 'bound',
+      whiskers: true, bellySide: true,
+      pal: { body: '#cfc6b6', belly: '#f7f4ee', accent: '#e4b4ae', dark: '#3a3028', eye: '#1c140c' },
+    },
+    squirrel: {
+      plan: 'quadruped', habitat: 'land', len: 1.2, wid: 0.55, head: 0.82, snout: 0.5, snoutW: 0.4,
+      eye: 0.3, ear: 'tufted', earSize: 0.8, tail: 'bushy', tailLen: 1.25, tailW: 1.05, leg: 0.75, gait: 'bound',
+      whiskers: true, bellySide: true,
+      pal: { body: '#b4552a', belly: '#f2e6d0', accent: '#e9b08a', dark: '#3a1a0c', eye: '#120a06' },
+    },
+    fox: {
+      plan: 'quadruped', habitat: 'land', len: 1.6, wid: 0.55, head: 0.9, snout: 1.1, snoutW: 0.3,
+      eye: 0.24, pupil: 'hslit', ear: 'pointy', earSize: 1.2, tail: 'bushy', tailLen: 1.0, tailTip: 'light',
+      leg: 0.9, gait: 'trot', muzzle: true, bellySide: true, darkLegs: true, whiskers: true,
+      pal: { body: '#cf6420', belly: '#f4ead8', accent: '#f6efe2', dark: '#2a1810', eye: '#d79a2a' },
+    },
+    lynx: {
+      plan: 'quadruped', habitat: 'land', len: 1.45, wid: 0.7, head: 0.95, snout: 0.42, snoutW: 0.5,
+      eye: 0.24, pupil: 'hslit', ear: 'tufted', earSize: 1.0, tail: 'stub', tailTip: 'dark', leg: 1.15, gait: 'walk',
+      mark: 'ruff', muzzle: true, whiskers: true,
+      pal: { body: '#a8937a', belly: '#ebe2d2', accent: '#efe6d6', dark: '#2b2218', eye: '#c9a43a' },
+    },
+    wolverine: {
+      plan: 'quadruped', habitat: 'land', len: 1.5, wid: 0.72, head: 0.9, snout: 0.6, snoutW: 0.48,
+      eye: 0.2, ear: 'round', earSize: 0.6, tail: 'bushy', tailLen: 0.5, leg: 0.7, gait: 'bound', flex: 1.4,
+      mark: 'saddle', darkLegs: true,
+      pal: { body: '#5a4230', belly: '#c79f68', accent: '#d8b47c', dark: '#1a120c', eye: '#140e0a' },
+    },
+    wolf: {
+      plan: 'quadruped', habitat: 'land', len: 1.75, wid: 0.6, head: 0.95, snout: 1.0, snoutW: 0.36,
+      eye: 0.2, ear: 'pointy', earSize: 0.95, tail: 'bushy', tailLen: 0.8, tailTip: 'dark', leg: 1.0, gait: 'trot',
+      mark: 'saddle', muzzle: true, bellySide: true, whiskers: true,
+      pal: { body: '#8e867a', belly: '#e0d8c9', accent: '#efe9dd', dark: '#2a2622', eye: '#c9a23a' },
+    },
+    bear: {
+      plan: 'quadruped', habitat: 'land', len: 1.55, wid: 0.95, head: 0.82, snout: 0.75, snoutW: 0.5,
+      eye: 0.16, ear: 'round', earSize: 0.75, tail: 'stub', tailLen: 0.6, leg: 0.9, gait: 'walk', flex: 0.6,
+      muzzle: true, darkLegs: true,
+      pal: { body: '#7a5232', belly: '#b08458', accent: '#c49a6a', dark: '#2a1a10', eye: '#1a120c' },
+    },
+    boar: {
+      plan: 'quadruped', habitat: 'land', len: 1.45, wid: 0.8, head: 1.0, snout: 1.0, snoutW: 0.55,
+      eye: 0.16, ear: 'pointy', earSize: 0.6, tail: 'thin', tailLen: 0.35, leg: 0.6, gait: 'trot', flex: 0.7,
+      darkLegs: true, mark: 'ruff',
+      pal: { body: '#4f4033', belly: '#7a6656', accent: '#efe4cc', dark: '#1d1612', eye: '#140e0a' },
+    },
+    deer: {
+      plan: 'quadruped', habitat: 'land', len: 1.6, wid: 0.55, head: 0.75, snout: 0.9, snoutW: 0.4,
+      eye: 0.24, ear: 'long', earSize: 0.85, tail: 'short', tailLen: 0.8, tailTip: 'dark', leg: 1.3, gait: 'trot',
+      muzzle: true, bellySide: true,
+      pal: { body: '#9c7c58', belly: '#ece0ca', accent: '#efe4d0', dark: '#2a2016', eye: '#120c08' },
+    },
+    elk: {
+      plan: 'quadruped', habitat: 'land', len: 1.75, wid: 0.62, head: 0.8, snout: 1.0, snoutW: 0.44,
+      eye: 0.18, ear: 'pointy', earSize: 0.8, horns: 'antlers', hornSize: 1.35, tail: 'stub', leg: 1.3, gait: 'trot',
+      mark: 'ruff', muzzle: true,
+      pal: { body: '#a67e50', belly: '#dcc59e', accent: '#e8d8b8', dark: '#3b2818', eye: '#120c08' },
+    },
   });
 })();

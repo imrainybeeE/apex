@@ -309,7 +309,7 @@ Playtest verdict: core movement, creatures and world art are good; everything ar
   | frog | tongue snatch | pulls the nearest edible within 6r in and eats it; stuns a non-edible 0.6s | 6s |
   | skink | tail drop | drops a wriggling decoy that hunters chase for 3s; you get +40% speed for 1.5s | 12s |
 
-- **Angry neutrals**: bumping (with speed) into an animal that is neither food nor a threat makes it `angry` for 6s. It chases you and nips for `CFG.NIP_DMG × depth` damage, scaling up in later tiers. AI state `angry`; fx shows a small anger mark.
+- **Angry neutrals**: bumping (with speed) into an animal that is neither food nor a threat makes it `angry` for 6s. It chases you and nips for `CFG.NIP_DMG × √depth` damage, scaling up in later tiers (every tier starts the player at the same size, so full depth scaling killed in a few bumps). AI state `angry`; fx shows a small anger mark.
 - **Controls** (final): mouse steers; left click / Space = bite; Shift / right click = dash; E / Q = ability; Tab (hold) = ecosystem view; R restart, Esc/P pause, M mute. Touch: drag steers, with on-screen Bite / Dash / Ability buttons.
 - **New player and entity fields**: `hp, maxHp, biteCdT, ability:{id, cd, cdT, activeT}, stunT, slowT, angryT, flinchT`.
 - **New events**: `bite, damage, abilityUse{e,id}, angry{e}, flinch{e}, carcass{e}, tutorialStep{id}`.
@@ -378,6 +378,13 @@ At t3_pond, harmony crashes and predators stop being a threat. Hunters probably 
 - Fonts load with a system fallback stack (`"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif`).
 
 ---
+
+# M2 — Land path decisions (from user, binding)
+- **Seasons**: t4 Spring Meadow (fresh grass, wildflowers), t5 Autumn Forest (fallen leaves, berries), t6 Winter Valley (frost, snow patches, willows). The run ends in early winter.
+- **Land animal art is more realistic** than the bugs: natural proportions, longer snouts, smaller eyes, and bigger animals get smaller eyes.
+- **Abilities for the land players** reuse the six mechanics: weasel Pounce (charge), snake Musk spray (spray), fox Mouse pounce (snatch, drawn as a leap), lynx Ambush leap (charge), wolf Howl (wide cone slow, drawn as sound arcs), bear Brace (roll: 2s untouchable, knockback).
+- **Audio**: Minecraft sounds in every build, including the Google Sites one (the user's call: the site is private).
+- Pond Edge is no longer final; t6 Winter Valley is the final hold. Marsh and river (sky and sea) come in M3.
 
 # Working rule (from user, binding)
 No subagent swarms and no Workflow runs. Spawning a single subagent when it genuinely helps is fine, no need to announce it.

@@ -396,7 +396,9 @@
     if (!kind) return;
     const c = { kind, e, t: 0, dur: CAST_DUR[kind] || 0.5, a: e.angle || 0, x: e.x, y: e.y, tx: e.x, ty: e.y, target: null };
     const r = e.r, g = A.G;
-    if (kind === 'spray') {
+    if (kind === 'spray' && e.sp === 'wolf') {
+      // a howl: no droplets, drawCast shows the sound arcs
+    } else if (kind === 'spray') {
       const m = mouthOf(e, 0.7);
       burst(m[0], m[1], { colors: [COL.bone, '#E9F6C8', COL.grow], n: 18, r, speed: 8, size: 0.2, life: 0.5, angle: e.angle || 0,
         arc: Math.PI / 2, drag: 2.6, add: false });
@@ -1337,7 +1339,19 @@
     if (!e) return;
     const k = clamp(c.t / c.dur, 0, 1);
     const r = e.r;
-    if (c.kind === 'spray') {
+    if (c.kind === 'spray' && e.sp === 'wolf') { // howl: sound arcs rolling out in front
+      const a = e.angle || c.a, m = mouthOf(e, 0.8);
+      ctx.save();
+      ctx.lineCap = 'round';
+      for (let i = 0; i < 3; i++) {
+        const q = k * 1.4 - i * 0.2;
+        if (q <= 0 || q >= 1) continue;
+        ctx.strokeStyle = rgba(COL.bone, 0.75 * (1 - q));
+        ctx.lineWidth = Math.max(2 / z, r * 0.08) * (1 - q * 0.5);
+        ctx.beginPath(); ctx.arc(m[0], m[1], r * (0.8 + 3.4 * q), a - 1.1, a + 1.1); ctx.stroke();
+      }
+      ctx.restore();
+    } else if (c.kind === 'spray') {
       const a = e.angle || c.a, reach = r * 3;
       const f = Math.pow(1 - k, 1.4);
       const m = mouthOf(e, 0.7);
@@ -1369,6 +1383,22 @@
       ctx.strokeStyle = rgba('#FFFFFF', 0.85 * f);
       ctx.lineWidth = Math.max(2.6 / z, r * 0.1);
       ctx.beginPath(); ctx.arc(m[0], m[1], r * 0.8, a - 0.9, a + 0.9); ctx.stroke();
+    } else if (c.kind === 'tongue' && e.sp !== 'frog') { // a pounce: speed lines toward the target, then a landing arc
+      const m = mouthOf(e, 0.85), tg = c.target;
+      if (tg && tg.alive !== false) { c.tx = tg.x; c.ty = tg.y; }
+      const dx = c.tx - m[0], dy = c.ty - m[1], d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+      const f = 1 - k;
+      ctx.strokeStyle = rgba(COL.bone, 0.7 * f);
+      ctx.lineWidth = Math.max(1.8 / z, r * 0.06);
+      ctx.lineCap = 'round';
+      for (let i = -1; i <= 1; i++) {
+        const ox = -uy * r * 0.4 * i, oy = ux * r * 0.4 * i, s0 = Math.min(1, k * 2.2) * d;
+        ctx.beginPath(); ctx.moveTo(m[0] + ox + ux * s0 * 0.3, m[1] + oy + uy * s0 * 0.3); ctx.lineTo(m[0] + ox + ux * s0, m[1] + oy + uy * s0); ctx.stroke();
+      }
+      if (k > 0.35) {
+        ctx.strokeStyle = rgba('#FFFFFF', 0.8 * f);
+        ctx.beginPath(); ctx.arc(c.tx, c.ty, r * (0.5 + 0.6 * k), Math.atan2(uy, ux) - 1, Math.atan2(uy, ux) + 1); ctx.stroke();
+      }
     } else if (c.kind === 'tongue') {
       const m = mouthOf(e, 0.85);
       let tx = c.tx, ty = c.ty;

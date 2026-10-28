@@ -33,7 +33,7 @@
     WOUND_FLEE: 0.3, WOUND_RECOVER: 0.5,                 // hunters flee below 30% hp and return once back to 50%
     REGEN: 0.02, REGEN_DELAY: 4, REGEN_ENERGY: 0.3,      // player: 2% maxHp/s after 4s unhurt while energy > 30%
     NPC_REGEN: 0.02, NPC_REGEN_DELAY: 5,
-    NIP_DMG: 4, NIP_CD: 1.1, NIP_INVULN: 0.5,            // angry neutral nip = NIP_DMG x tier depth
+    NIP_DMG: 4, NIP_CD: 1.1, NIP_INVULN: 0.5,            // angry neutral nip = NIP_DMG x sqrt(tier depth)
     ANGRY_TIME: 6, ANGRY_SPEED: 1.15, ANGRY_BUMP_SPEED: 90, ANGRY_LEASH: 400,
     CARCASS_TIME: 25, CARCASS_GROWTH: 0.5, DECOY_TIME: 3, TIP_TIME: 8,
     TUT_BEETLE_DMG: 0.35,                                // tutorial step 5: beetle damage multiplier
@@ -102,9 +102,42 @@
         ability: { id: 'tongue', name: 'Tongue snatch', blurb: 'Snatch the nearest edible bug. Anything too big is stunned.', cd: 6, range: 6, stunT: 0.6, missCd: 0.6 } }),
     shrew: S('Common Shrew', 'Sorex araneus', 'A shrew eats most of its own body weight every day, so it is always on the hunt for bugs.'),
     tadpole: S('Tadpole', 'Rana temporaria', 'Tadpoles breathe with gills and swim with a tail, then grow legs and lungs to become frogs.'),
-    weasel: S('Least Weasel', 'Mustela nivalis', 'The least weasel is the smallest meat-eating mammal, and its skinny body slips right into mouse burrows.'),
-    snake: S('Garter Snake', 'Thamnophis sirtalis', 'Snakes flick their tongues to collect scents from the air and ground, so they can smell where prey went.'),
+    weasel: S('Least Weasel', 'Mustela nivalis', 'The least weasel is the smallest meat-eating mammal, and its skinny body slips right into mouse burrows.',
+      { playable: true, innate: { limbs: 1 },
+        ability: { id: 'charge', name: 'Pounce', blurb: 'Spring forward and stun whatever you hit.', cd: 7, dur: 0.35, speedMul: 2.5, stunT: 0.9, dmgMul: 1.8 } }),
+    snake: S('Garter Snake', 'Thamnophis sirtalis', 'Snakes flick their tongues to collect scents from the air and ground, so they can smell where prey went.',
+      { playable: true, innate: { camo: 1 },
+        ability: { id: 'spray', name: 'Musk spray', blurb: 'Garter snakes release a foul musk: it hurts and slows anything in front of you.', cd: 8, arc: 80, range: 3, dmgMul: 1.1, slowMul: 0.55, slowT: 2.2 } }),
     heron: S('Great Blue Heron', 'Ardea herodias', 'A heron can stand perfectly still for minutes, then spear a fish with a lightning-fast neck strike.'),
+    // M2 land path: producers
+    grass: S('Meadow Grass', 'Poa pratensis', 'Grass grows from the base of the leaf, not the tip, so it keeps growing back after grazers bite it.'),
+    berries: S('Bilberries', 'Vaccinium myrtillus', 'Forest berries feed bears, foxes and birds, which spread the seeds in their droppings far from the parent bush.'),
+    willow: S('Willow', 'Salix exigua', 'Willows along valley streams hold the banks together with their roots, and elk love to browse their shoots.'),
+    // M2 land path: animals
+    mouse: S('Field Mouse', 'Apodemus sylvaticus', 'A field mouse can have a new litter every month, which is why so many hunters depend on mice.'),
+    vole: S('Meadow Vole', 'Microtus pennsylvanicus', 'Voles dig tunnels under the grass and snow, and their numbers can boom and crash every few years.'),
+    songbird: S('Meadowlark', 'Sturnella magna', 'Meadowlarks nest on the ground, hidden in the grass, and sing from fence posts to claim their patch.'),
+    rabbit: S('Cottontail Rabbit', 'Sylvilagus floridanus', 'A rabbit\'s eyes sit high on the sides of its head, so it can watch almost all the way around without turning.'),
+    hawk: S('Red-tailed Hawk', 'Buteo jamaicensis', 'Red-tailed hawks circle high on warm air, then drop feet-first onto mice and voles they spotted from far above.'),
+    fox: S('Red Fox', 'Vulpes vulpes', 'A fox can hear a mouse squeak under snow, then leaps high and dives nose-first to catch it.',
+      { playable: true, innate: { gut: 1 }, omni: true,
+        ability: { id: 'tongue', name: 'Mouse pounce', blurb: 'Leap onto the nearest thing you can eat. Anything too big is stunned.', cd: 6, range: 6, stunT: 0.6, missCd: 0.6 } }),
+    lynx: S('Canada Lynx', 'Lynx canadensis', 'A lynx has huge furry paws that work like snowshoes, and it mostly hunts snowshoe hares.',
+      { playable: true, innate: { camo: 1 },
+        ability: { id: 'charge', name: 'Ambush leap', blurb: 'Burst out of hiding and stun whatever you hit.', cd: 8, dur: 0.4, speedMul: 2.6, stunT: 1, dmgMul: 2.2 } }),
+    squirrel: S('Red Squirrel', 'Tamiasciurus hudsonicus', 'A red squirrel buries thousands of seeds and forgets some, which grow into new trees.'),
+    grouse: S('Ruffed Grouse', 'Bonasa umbellus', 'In spring a male grouse beats his wings so fast the air makes a drumming sound you can hear far away.'),
+    hare: S('Snowshoe Hare', 'Lepus americanus', 'Snowshoe hares turn white in winter and brown in summer, so they always match the ground.'),
+    wolverine: S('Wolverine', 'Gulo gulo', 'Wolverines are fearless for their size and will chase much bigger animals off a meal.'),
+    wolf: S('Gray Wolf', 'Canis lupus', 'Wolves hunt as a family pack, taking turns chasing so the whole pack can bring down big prey like elk.',
+      { playable: true, innate: { limbs: 1 },
+        ability: { id: 'spray', name: 'Howl', blurb: 'Howl at the animals in front of you: they flinch and slow down.', cd: 9, arc: 140, range: 4, dmgMul: 0.35, slowMul: 0.5, slowT: 2.5 } }),
+    bear: S('Grizzly Bear', 'Ursus arctos', 'Grizzlies eat berries, roots and fish as well as meat, and can smell food from kilometres away.',
+      { playable: true, innate: { spikes: 1 }, omni: true,
+        ability: { id: 'roll', name: 'Brace', blurb: 'Plant your feet and shrug off every hit for 2 seconds, knocking attackers back.', cd: 10, dur: 2, speedMul: 0.5, knock: 620, stunT: 0.4 } }),
+    boar: S('Wild Boar', 'Sus scrofa', 'Boars plough up the soil with their snouts looking for roots and grubs, which helps new plants sprout.'),
+    deer: S('Mule Deer', 'Odocoileus hemionus', 'Mule deer bounce on all four legs at once, a jump called stotting that shows hunters they are hard to catch.'),
+    elk: S('Elk', 'Cervus canadensis', 'Bull elk grow a new set of antlers every year, and they can weigh as much as a child.'),
   };
 
   // ---------------------------------------------------------------- TIERS
@@ -159,8 +192,8 @@
       id: 't3_pond', depth: 3, path: 'shared', biome: 'pond', habitat: 'land',
       name: 'Pond Edge', blurb: 'Reeds, water and open mud. Herons watch from above.',
       players: ['frog', 'skink'],
-      next: [], // M1: final tier. M2 restores next = ['t4_meadow', 't4_marsh', 't4_river'] and removes final.
-      prev: 't2_under', final: true,
+      next: ['t4_meadow'], // M3 adds 't4_marsh' (sky) and 't4_river' (sea)
+      prev: 't2_under',
       maxScale: 2.0, growthNeeded: 320, drain: 1.4, world: 1200,
       roster: [
         P('reeds', 12, 14), P('lilypad', 14, 14),
@@ -175,6 +208,65 @@
         disease: { title: 'Pond Sickness', text: 'Crowded {sp} spread a disease; eating a sick one will poison you.' },
         barren: { title: 'Stripped Shore', text: 'The reeds and lily pads were eaten faster than they can grow back, so the grazers are starving.' },
         surge: { title: 'Predator Surge', text: 'So much prey around the pond drew in extra weasels, snakes and herons.' },
+      },
+    },
+    // ---------------------------------------------------------- M2 land path: spring, autumn, early winter
+    t4_meadow: {
+      id: 't4_meadow', depth: 4, path: 'land', biome: 'meadow', habitat: 'land',
+      name: 'Spring Meadow', blurb: 'Fresh grass and wildflowers. Hawks circle overhead, foxes creep through the stems.',
+      players: ['snake', 'weasel'], next: ['t5_forest'], prev: 't3_pond',
+      maxScale: 1.7, growthNeeded: 460, drain: 1.4, world: 1200,
+      roster: [
+        P('grass', 12, 18),
+        Gz('grasshopper', 'hop', 4, 20, 90), Gz('frog', 'hop', 8, 10, 85), Gz('skink', 'scurry', 8, 10, 100),
+        Gz('mouse', 'scurry', 9, 14, 95), Gz('vole', 'graze', 10, 12, 70),
+        Gz('songbird', 'flock', 14, 7, 140), Gz('rabbit', 'hop', 17, 6, 115),
+        H('fox', 'stalk', 32, 2, 125), H('hawk', 'dive', 40, 1, 135),
+      ],
+      mishaps: {
+        famine: { title: 'Hungry Meadow', text: 'So few small animals are left that the foxes and hawks are hunting you instead.' },
+        boom: { title: '{sp} Explosion', text: 'With too few hunters, {sp} bred out of control and are mowing the grass down.' },
+        disease: { title: 'Meadow Sickness', text: 'Crowded {sp} passed a disease around; eating a sick one will poison you.' },
+        barren: { title: 'Grazed Bare', text: 'The grass was eaten faster than it can grow back, so the grazers are starving.' },
+        surge: { title: 'Hunter Surge', text: 'Plenty of prey drew in more foxes and hawks.' },
+      },
+    },
+    t5_forest: {
+      id: 't5_forest', depth: 5, path: 'land', biome: 'forest', habitat: 'land',
+      name: 'Autumn Forest', blurb: 'Falling leaves and ripe berries. Wolves and a bear are fattening up for winter.',
+      players: ['fox', 'lynx'], next: ['t6_valley'], prev: 't4_meadow',
+      maxScale: 1.7, growthNeeded: 360, drain: 1.4, world: 1200,
+      roster: [
+        P('berries', 12, 16),
+        Gz('mouse', 'scurry', 4, 22, 95), Gz('squirrel', 'scurry', 7, 14, 110), Gz('snake', 'graze', 8, 10, 70),
+        Gz('rabbit', 'hop', 9, 12, 110), Gz('grouse', 'flock', 13, 7, 120), Gz('hare', 'hop', 16, 6, 125),
+        H('wolverine', 'chase', 30, 1, 125), H('wolf', 'pack', 32, 2, 130), H('bear', 'charge', 55, 1, 115),
+      ],
+      mishaps: {
+        famine: { title: 'Lean Autumn', text: 'The forest ran short of prey, so the wolves and the bear are desperate and coming for you.' },
+        boom: { title: '{sp} Boom', text: 'With too few hunters, {sp} multiplied and are stripping the berry bushes.' },
+        disease: { title: 'Forest Sickness', text: 'Crowded {sp} spread a disease; eating a sick one will poison you.' },
+        barren: { title: 'Picked Clean', text: 'The berries were eaten faster than the bushes can ripen more, so the grazers are starving.' },
+        surge: { title: 'Wolves Gather', text: 'So much prey drew in extra wolves and wolverines.' },
+      },
+    },
+    t6_valley: {
+      id: 't6_valley', depth: 6, path: 'land', biome: 'valley', habitat: 'land',
+      name: 'Winter Valley', blurb: 'Frost on the willows and elk in the river bottom. Rule the valley without emptying it.',
+      players: ['wolf', 'bear'], next: [], prev: 't5_forest', final: true,
+      maxScale: 2.6, growthNeeded: 560, drain: 1.4, world: 1200,
+      roster: [
+        P('willow', 14, 16),
+        Gz('hare', 'hop', 5, 18, 120), Gz('fox', 'scurry', 9, 10, 115), Gz('boar', 'graze', 13, 8, 95),
+        Gz('deer', 'herd', 14, 8, 110), Gz('elk', 'herd', 22, 6, 105),
+        H('wolf', 'pack', 24, 2, 125), H('bear', 'charge', 28, 1, 115),
+      ],
+      mishaps: {
+        famine: { title: 'Starving Winter', text: 'Too few grazers are left in the snow, so the other hunters are desperate and coming for you.' },
+        boom: { title: 'Too Many {sp}', text: 'Without enough hunters, {sp} crowded the valley and are stripping the willows.' },
+        disease: { title: 'Winter Sickness', text: 'Crowded {sp} spread a disease; eating a sick one will poison you.' },
+        barren: { title: 'Willow Collapse', text: 'Grazers ate the willows faster than they can regrow. The riverbanks are bare and the grazers are starving.' },
+        surge: { title: 'Too Many Hunters', text: 'Plenty of prey drew in extra wolves and bears.' },
       },
     },
   };

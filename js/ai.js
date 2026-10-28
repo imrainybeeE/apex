@@ -879,7 +879,7 @@
     return true;
   }
 
-  // An angry neutral chases the player and nips (NIP_DMG x tier depth). Returns false when it lost interest.
+  // An angry neutral chases the player and nips (NIP_DMG x sqrt(tier depth): every tier starts the player at the same size). Returns false when it lost interest.
   function angryStep(e, dt, G, ai) {
     const p = G.player;
     if (!p || p.alive === false || !isFinite(p.x) || G.mode !== 'play') { e.angryT = 0; return false; }
@@ -891,7 +891,7 @@
     if (d < touch && e.nipCd <= 0 && num(p.invulnT, 0) <= 0 && A.damageEntity) {
       e.nipCd = cfg('NIP_CD', 1.1);
       e.biteT = 0.25;
-      A.damageEntity(p, cfg('NIP_DMG', 4) * Math.max(1, num(G.tier && G.tier.depth, 1)), e, { kind: 'nip' });
+      A.damageEntity(p, cfg('NIP_DMG', 4) * Math.sqrt(Math.max(1, num(G.tier && G.tier.depth, 1))), e, { kind: 'nip' });
     }
     return true;
   }

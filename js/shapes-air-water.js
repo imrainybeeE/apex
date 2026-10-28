@@ -431,6 +431,21 @@
       legCol: '#b79a34', crest: 'plume', eye: 1,
       pal: { body: '#7f9cb5', belly: '#eef2f2', accent: '#f0c43a', dark: '#1b2533', eye: '#f2d94a' },
     },
+    hawk: {
+      plan: 'bird', habitat: 'air', len: 1.5, wid: 0.62, headR: 0.3, beak: 'hooked', beakLen: 0.32, neck: 0.4, neckS: 0.3,
+      span: 2.6, wing: 'broad', feathers: 9, flapRate: 4, tail: 'fan', tailLen: 0.55, legs: 0, marks: 'streaks', eye: 0.8,
+      pal: { body: '#7a5236', belly: '#efe4d2', accent: '#c4552a', dark: '#2a1a10', eye: '#e0b040' },
+    },
+    songbird: {
+      plan: 'bird', habitat: 'air', len: 1.2, wid: 0.6, headR: 0.32, beak: 'dagger', beakLen: 0.38, neck: 0.3, neckS: 0.2,
+      span: 1.7, wing: 'round', feathers: 7, flapRate: 11, tail: 'short', tailLen: 0.5, legs: 0, marks: 'streaks', eye: 0.85,
+      pal: { body: '#8a6d48', belly: '#f2c430', accent: '#1e1a14', dark: '#2a1e12', eye: '#100a06' },
+    },
+    grouse: {
+      plan: 'bird', habitat: 'land', len: 1.3, wid: 0.78, headR: 0.3, beak: 'short', beakLen: 0.2, neck: 0.3, neckS: 0.2,
+      span: 1.8, wing: 'round', feathers: 7, flapRate: 9, tail: 'fan', tailLen: 0.6, legs: 0, marks: 'bars', crest: 'tuft', eye: 0.8,
+      pal: { body: '#7c6248', belly: '#d8c4a2', accent: '#3a2a1c', dark: '#241a10', eye: '#140c06' },
+    },
     tadpole: {
       plan: 'fish', habitat: 'water', noShadow: true, body: 'tadpole', len: 1.4, wid: 0.5, eye: 1,
       pal: { body: '#2b3a31', belly: '#61785a', accent: '#7f9a5e', dark: '#0f1914', eye: '#f1dc7a' },
