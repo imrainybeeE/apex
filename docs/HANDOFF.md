@@ -35,6 +35,8 @@ node tools/ring-check.mjs [outDir]   # close-ups of the player's rings frozen in
                                      # hurt + hungry), ant and frog, desktop + mobile
 node tools/stubcheck.mjs <files> --eval "<js>"     # load scripts in a Node vm with stubbed browser APIs
 node tools/build-single.mjs          # dist/apex.html: the whole game in one file (playtesters, Google Sites)
+node tools/windows-check.mjs         # dist/apex.html in Chromium + Firefox at DPR 1/1.25/1.5: errors, right-click dash,
+                                     # context menu blocked, Segoe UI fallback; shots in shots/win/
 node tools/scratch/sweep.mjs '<json configs>' [bots] [seeds]   # balance sweeps with in-page overrides (scratch, gitignored)
 ```
 
@@ -98,7 +100,7 @@ Plain HTML + Canvas 2D + DOM, classic scripts sharing `window.Apex` (no build st
 1. ~~UI is "absolutely terrible"~~: fixed by the M1.5 UI above.
 2. ~~No onboarding~~: the tutorial has its bubbles, highlights and target ring.
 3. **Plays way too fast**: partly fixed. growthNeeded 140/300/320, `CARCASS_GROWTH` 0.5, `RG` 0.02, hunters breed after 5 meals up to `HUNTER_BREED_CAP` 1.75×n0. Balanced bot: wins 3/3, tiers 28–160s (target 110–170s, high variance), harmony 57–89. Humans are slower than the bot; wait for the user's playtest before tuning further.
-4. **Pond tier** (open): with balanced play it holds; after greedy play prey never recover (greedy harmony ~20), because hunters live on migrants. Also by design nothing can eat you during the final hold, which playtesters read as "predators stop being a threat".
+4. **Pond tier**: holds with balanced play, and now recovers after a greedy crash (harmony ~2 back to 55–66 within about 3 min of balanced play; test with `debug.simulate(sec, {tier:'t3_pond', bot:'greedy', botAfter:{t:150, bot:'balanced'}})`). Faster hunter starvation during famine was tried and did not help. Also by design nothing can eat you during the final hold, which playtesters read as "predators stop being a threat".
 
 **Balance findings:** with longer tiers, famine was driven by hunters breeding (beetles/skinks doubling in 20s), not by the player. The balanced bot now skips scarce ('low') species while energy ≥ 35. Sim targets in `check.mjs` follow M1.5; still failing: the 110–170s tier window on some seeds, deaths (0 across seeds), surge in t3.
 
@@ -132,7 +134,7 @@ Each step ends with smoke passing and a commit.
 1. ~~UI overhaul~~: done (see §4). For any later UI change, run `node tools/ui-shots.mjs <round>` before and after, review with `tools/pair.py`, then smoke.
 2. **Playtest build**: the user is playtesting `dist/apex.html` and putting it on Google Sites for the teacher. Wait for their feedback before more balance work.
 3. **Balance and pond fix** (continue from §4 findings): hit the sim targets above. Diagnose the pond with `?tier=t3_pond&debug=1` plus the sim (hunter counts over time). Then re-run smoke.
-3. **Windows check**: Playwright Chromium + Firefox at deviceScaleFactor 1, 1.25 and 1.5. Check right-click dash (contextmenu suppressed), font fallback (Segoe UI), and the backdrop-filter fallback. Real Windows can't be confirmed from macOS; say so.
+3. **Windows check**: Chromium passes at DPR 1, 1.25 and 1.5 (`tools/windows-check.mjs`). Firefox is **not checked**: it fails to launch inside the Claude Code Bash sandbox, and running outside the sandbox was denied. The user can run `node tools/windows-check.mjs` in their own terminal. Real Windows (Edge, ClearType, GPU) can't be confirmed from macOS.
 4. **Hand a build to playtesters**: zip the folder (exclude `node_modules`, `shots`, `tools/scratch`); they double-click `index.html`.
 5. **Then the milestones in DESIGN.md**:
    - M2: Land path + Minecraft audio + final hold on the valley.
