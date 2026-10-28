@@ -891,7 +891,7 @@
     if (d < touch && e.nipCd <= 0 && num(p.invulnT, 0) <= 0 && A.damageEntity) {
       e.nipCd = cfg('NIP_CD', 1.1);
       e.biteT = 0.25;
-      A.damageEntity(p, cfg('NIP_DMG', 4) * Math.sqrt(Math.max(1, num(G.tier && G.tier.depth, 1))), e, { kind: 'nip' });
+      A.damageEntity(p, cfg('NIP_DMG', 4.6) * Math.sqrt(Math.max(1, num(G.tier && G.tier.depth, 1))), e, { kind: 'nip' });
     }
     return true;
   }
