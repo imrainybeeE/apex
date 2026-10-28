@@ -16,7 +16,7 @@
   const angDiff = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 
   // Telegraph and attack timings (seconds); phase 3 shortens windups.
-  const T = { arrive: 3.2, stalk: [1.2, 2.2], chargeWind: 0.95, charge: 0.8, chain: 0.45, stun: 1.7, swipeWind: 0.55,
+  const T = { arrive: 3.2, stalk: [1.2, 2.2], chargeWind: 0.95, charge: 0.6, chain: 0.45, stun: 2.4, swipeWind: 0.55,
     recover: 0.75, slamWind: 1.15, slamRecover: 1.1, roarWind: 0.7, phaseRoar: 1.4, death: 3.2 };
 
   let fight = null;   // internal state; mirrored to G.boss for the UI and core
@@ -32,7 +32,7 @@
   }
 
   function init() {
-    if (A.on) A.on('tierStart', () => { const G = A.G; const retry = G && G.bossRetry; reset(); if (G) G.bossRetry = retry; });
+    if (A.on) A.on('tierStart', () => { const G = A.G; const retry = G && G.bossRetry; reset(); if (G) { G.bossRetry = retry; G.bossDone = false; } });   // every new run or retry gets its boss
     if (A.on) A.on('restart', reset);
   }
 
@@ -287,13 +287,6 @@
       ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, e.angle - 0.85, e.angle + 0.85); ctx.closePath(); ctx.fill();
       ctx.strokeStyle = 'rgba(127,232,212,' + (0.5 + 0.4 * pulse) + ')'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(0, 0, R * k, e.angle - 0.85, e.angle + 0.85); ctx.stroke();
-    } else if (st === 'stunned') {   // stars over its head: hit it now
-      ctx.translate(X(e.x, cam), Y(e.y, cam));
-      ctx.fillStyle = '#F2D94E';
-      for (let i = 0; i < 4; i++) {
-        const a = t * 4 + i * TAU / 4, rr = e.r * 0.9 * z;
-        ctx.beginPath(); ctx.arc(Math.cos(a) * rr, Math.sin(a) * rr * 0.4 - e.r * 0.6 * z, Math.max(3, e.r * 0.12 * z), 0, TAU); ctx.fill();
-      }
     }
     ctx.restore();
   }
@@ -329,6 +322,10 @@
     if (!p || !e) return out;
     const dx = e.x - p.x, dy = e.y - p.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, st = fight.state;
     const away = () => { out.dx = -ux; out.dy = -uy; };
+    const ab = p.ability, bracing = ab && ab.id === 'roll' && ab.activeT > 0;
+    const threat = st === 'chargeWind' || st === 'charge' || st === 'slamWind' || st === 'swipeWind' || st === 'roarWind';
+    if (ab && ab.id === 'roll' && !(ab.cdT > 0) && threat && d < e.r * 3) out.ability = true;   // brace and tank it
+    if (bracing) { out.dx = ux; out.dy = uy; if (d < e.r + p.r * 1.6) out.bite = true; return out; }
     if (st === 'chargeWind' || st === 'charge') {
       // step out of the lane sideways
       const a = fight.lane ? fight.lane.a : Math.atan2(-dy, -dx), nx = -Math.sin(a), ny = Math.cos(a);
@@ -341,13 +338,16 @@
     } else if (st === 'swipeWind' || st === 'roarWind' || st === 'phaseRoar') {
       away(); if (d < e.r * 2.4 && fight.t > 0.25) out.dash = true;
       if (st === 'roarWind') { out.dx = -uy; out.dy = ux; }
-    } else if (st === 'stunned' || st === 'recover' || st === 'slamRecover') {
-      out.dx = ux; out.dy = uy; if (d < e.r + p.r * 1.6) out.bite = true;
-      if (st === 'stunned' && p.ability && !(p.ability.cdT > 0)) out.ability = true;
-    } else {   // stalking: keep some distance, nip in when close
-      const want = e.r * 2.6;
+    } else if (st === 'stunned' || st === 'recover' || st === 'slamRecover') {   // punish window: close in fast and bite
+      out.dx = ux; out.dy = uy;
+      if (d > e.r + p.r * 2.5) out.dash = true;
+      if (d < e.r + p.r * 1.6) out.bite = true;
+      if (st === 'stunned' && d < e.r * 2 && p.ability && !(p.ability.cdT > 0)) out.ability = true;
+    } else {   // stalking: stay just outside swipe range, dart in for a bite now and then
+      const want = e.r * 2.1 + p.r;
       out.dx = ux * (d - want) / want - uy * 0.6; out.dy = uy * (d - want) / want + ux * 0.6;
-      if (d < e.r + p.r * 1.5) out.bite = true;
+      if (fight.t > 0.4 && fight.t < 0.9) { out.dx = ux; out.dy = uy; }
+      if (d < e.r + p.r * 1.6) out.bite = true;
     }
     return out;
   }

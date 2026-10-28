@@ -1098,6 +1098,7 @@
     const hasStatus = e.sick || e.desperate || e.hurtT > 0 || nz(e.stunT) > 0 || nz(e.angryT) > 0 || e.state === 'angry' || nz(e.flinchT) > 0;
     const dmg = playing ? npcDamaged(e) : 0; // the decomposition and choice screens stay clean
     const isDecoy = e.sp === 'decoy';
+    if (e.boss) { if (nz(e.stunT) > 0) { ctx.save(); stateMarks(ctx, e, t, z); ctx.restore(); } return; }   // the boss has its own health bar and telegraphs
     let cue = 0; // 1 edible, 2 danger
     let near = 0;
     if (live && !isDecoy) {

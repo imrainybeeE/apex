@@ -1872,7 +1872,7 @@
     try {
       A.newRun();
       if (opts.tier && tiersOf()[opts.tier]) {   // start in one tier (eco tests)
-        startTier(opts.tier, opts.sp || tiersOf()[opts.tier].players[0], { growth: 0 });
+        startTier(opts.tier, opts.sp || tiersOf()[opts.tier].players[0], { growth: opts.growth || 0 });
         setMode('play');
       }
       const dt = 1 / 30;

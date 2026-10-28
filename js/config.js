@@ -263,7 +263,7 @@
       name: 'Winter Valley', blurb: 'Frost on the willows and elk in the river bottom. Rule the valley without emptying it.',
       players: ['wolf', 'bear'], next: [], prev: 't5_forest', final: true,
       // The legend beast crashes in during the hold (js/boss.js). Damage is a share of your full-grown health.
-      boss: { sp: 'cavebear', at: 15, r: 52, hp: 4800, speed: 125, charge: 0.26, swipe: 0.2, slam: 0.32, roar: 0.1 },
+      boss: { sp: 'cavebear', at: 15, r: 52, hp: 3200, speed: 125, charge: 0.26, swipe: 0.2, slam: 0.32, roar: 0.1 },
       maxScale: 2.6, growthNeeded: 560, drain: 1.4, world: 1200,
       roster: [
         P('willow', 14, 16),
