@@ -1086,11 +1086,9 @@
       muzzle: true, bellySide: true,
       pal: { body: '#9c7c58', belly: '#ece0ca', accent: '#efe4d0', dark: '#2a2016', eye: '#120c08' },
     },
-    cavebear: {   // the boss: an Ice Age cave bear, huge and dark, with glowing scars
-      plan: 'quadruped', habitat: 'land', matte: true, len: 1.85, wid: 0.95, head: 0.78, snout: 0.95, snoutW: 0.48,
-      eye: 0.14, ear: 'round', earSize: 0.45, tail: 'stub', tailLen: 0.5, leg: 1.1, gait: 'walk', flex: 0.45, waist: 0.95,
-      muzzle: true, darkLegs: true, mark: 'scars',
-      pal: { body: '#4b3a2c', belly: '#6f5944', accent: '#7FE8D4', dark: '#160f0a', eye: '#ff6a3a' },
+    cavebear: {   // the boss: an Ice Age cave bear, drawn by its own plan in shapes-boss.js (poses, scars, frost)
+      plan: 'cavebear', habitat: 'land', matte: true, len: 1.7, wid: 1.0,
+      pal: { body: '#2e231a', belly: '#47362a', accent: '#7FE8D4', dark: '#1b140f', eye: '#ff6a2a' },
     },
     elk: {
       plan: 'quadruped', habitat: 'land', matte: true, len: 1.75, wid: 0.62, head: 0.8, snout: 1.0, snoutW: 0.44,
