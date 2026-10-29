@@ -1068,8 +1068,10 @@
       mark: 'saddle', muzzle: true, bellySide: true,
       pal: { body: '#8e867a', belly: '#e0d8c9', accent: '#efe9dd', dark: '#2a2622', eye: '#c9a23a' },
     },
-    bear: {
-      plan: 'quadruped', habitat: 'land', matte: true, len: 1.8, wid: 0.88, head: 0.7, snout: 1.05, snoutW: 0.42,
+    bear: {   // drawn by the cave bear plan (shapes-boss.js) as a grizzly: shoulder hump, silver-tipped fur, pale muzzle
+      plan: 'cavebear', variant: 'grizzly',
+      bpal: { deep: '#2b1b10', mid: '#5a3b22', top: '#7d5634', tip: '#cfae80', frost: '#e2d2b4', muzzle: '#9a7650', claw: '#efe6d2' },
+      habitat: 'land', matte: true, len: 1.8, wid: 0.88, head: 0.7, snout: 1.05, snoutW: 0.42,
       eye: 0.14, ear: 'round', earSize: 0.5, tail: 'stub', tailLen: 0.5, leg: 1.05, gait: 'walk', flex: 0.5, waist: 0.95,
       muzzle: true, darkLegs: true,
       pal: { body: '#7a5232', belly: '#b08458', accent: '#c49a6a', dark: '#2a1a10', eye: '#1a120c' },

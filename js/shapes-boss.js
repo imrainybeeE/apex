@@ -71,6 +71,17 @@
   const PAL = { deep: '#1d1510', mid: '#36291f', top: '#554030', tip: '#8f7860', frost: '#e6eff7', muzzle: '#4f4036', nose: '#0a0807',
     claw: '#ece4d2', clawLo: '#5d5346', fang: '#f4eddd', mouth: '#2b070c', gum: '#7c1c27', tongue: '#94303b' };
   const PAL_KEYS = ['deep', 'mid', 'top', 'muzzle', 'tip'];
+  // Variants of the plan, picked by look.variant. The grizzly (LOOKS.bear) shares the body but has no scars or ember
+  // eyes; its 'frost' colour becomes the silver guard-hair tips that give the grizzly its name.
+  const VARIANTS = {
+    boss: { scars: true, ember: true, closedFangs: true, crust: 1, hack: 1, scale: 1.08, rim: 1, flow: 1 },
+    grizzly: { scars: false, ember: false, closedFangs: false, crust: 0.4, hack: 0.5, scale: 1, rim: 0.45, flow: 0.45 },
+  };
+  let V = VARIANTS.boss;
+  function palOf(look) {
+    if (!look || !look.bpal) return PAL;
+    return look._bpal || (look._bpal = Object.assign({}, PAL, look.bpal));
+  }
   // spine (units of r), rear -> front, and its half-width profile: narrow waist, massive shoulder hump
   const SPX = [-1.28, -1.12, -0.9, -0.56, -0.22, 0.08, 0.3, 0.48, 0.62];
   const SPW = [0.4, 0.66, 0.72, 0.62, 0.7, 0.98, 1.05, 0.8, 0.5];
@@ -100,6 +111,12 @@
     GOAL.stun = st === 'stunned' ? 1 : 0;
     GOAL.slam = st === 'slamRecover' ? 1 : 0;
     GOAL.rage = B && B.phase >= 3 ? 1 : 0;
+    if (!B && !dead) {   // not the boss: hunter windup/lunge, the player's bite and Brace drive the same poses
+      const ab = e.ability, brace = !!ab && ab.id === 'roll' && ab.activeT > 0;
+      GOAL.crouch = e.state === 'windup' ? 1 : brace ? 0.6 : 0;
+      GOAL.lunge = e.state === 'lunge' ? 1 : 0;
+      GOAL.roar = e.biteT > 0 || brace ? 1 : 0;
+    }
     GOAL.move = clamp(Math.hypot(e.vx || 0, e.vy || 0) / ((e.r || 50) * 1.3), 0, 1);
     // the head tracks the player, lolls when stunned
     let yaw = Math.sin(t * 0.6 + (SEED % 100)) * 0.08;
@@ -120,7 +137,7 @@
     if (dead) { for (let i = 0; i < KEYS.length; i++) p[KEYS[i]] = 0; p.yaw = 0.6; }
     p.hurt = e.maxHp > 0 ? sat(1 - e.hp / e.maxHp) : 0;
     p.flash = e.hurtT > 0 ? sat(e.hurtT / 0.3) : 0;
-    p.hack = Math.max(p.rage, p.roar * 0.7, p.crouch * 0.4);
+    p.hack = Math.max(p.rage, p.roar * 0.7, p.crouch * 0.4) * V.hack;
     return p;
   }
 
@@ -397,7 +414,7 @@
     }
     if (!low) {   // frost on the fur tips facing the light: separates it from dark ground
       const R = 1.6 * r, gr = ctx.createLinearGradient(lx * R, ly * R, -lx * R, -ly * R);
-      gr.addColorStop(0, rgba(P.frost, 0.95)); gr.addColorStop(0.45, rgba(P.frost, 0.16)); gr.addColorStop(1, rgba(P.frost, 0.1));
+      gr.addColorStop(0, rgba(P.frost, 0.95 * V.rim)); gr.addColorStop(0.45, rgba(P.frost, 0.16 * V.rim)); gr.addColorStop(1, rgba(P.frost, 0.1 * V.rim));
       ctx.strokeStyle = gr; ctx.lineWidth = 0.05 * r; ctx.lineJoin = 'round'; ctx.stroke();   // frosted guard hairs, all round
     }
     // 2: the lit upper back
@@ -424,18 +441,18 @@
         let dx = -m.tx + m.nx * v * 0.7, dy = -m.ty + m.ny * v * 0.7;
         const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
         const lit = (m.nx * v * lx + m.ny * v * ly) > 0 || Math.abs(v) < 0.3;
-        ctx.strokeStyle = lit ? rgba(P.tip, 0.5) : rgba(P.deep, 0.75);
+        ctx.strokeStyle = lit ? rgba(P.tip, 0.5 * V.flow) : rgba(P.deep, 0.75);
         ctx.beginPath(); ctx.moveTo(m.x, m.y);
         ctx.quadraticCurveTo(m.x + dx * L * 0.5 - dy * L * 0.15, m.y + dy * L * 0.5 + dx * L * 0.15, m.x + dx * L, m.y + dy * L);
         ctx.stroke();
       }
       // frost crusted on the hump and rump
       ctx.fillStyle = P.frost;
-      for (let j = 0; j < 40; j++) {
+      for (let j = 0; j < 40 && V.crust > 0; j++) {
         const hu = nz(1000 + j), u = hu < 0.75 ? 0.52 + 0.4 * nz(1040 + j) : 0.05 + 0.25 * nz(1040 + j);
         const v = (nz(1080 + j) * 2 - 1) * 0.5;
         const m = map(u, v), rr = (0.012 + 0.024 * nz(1120 + j)) * r;
-        ctx.globalAlpha = 0.45 + 0.5 * nz(1160 + j);
+        ctx.globalAlpha = (0.45 + 0.5 * nz(1160 + j)) * V.crust;
         ctx.beginPath(); ctx.arc(m.x + lx * 0.12 * r, m.y + ly * 0.12 * r, rr, 0, TAU); ctx.fill();
       }
       ctx.globalAlpha = 1;
@@ -585,7 +602,7 @@
     const fl = (0.16 + 0.05 * p.rage + 0.05 * open) * r;
     for (let sg = -1; sg <= 1; sg += 2) {
       if (open > 0.04) fang(ctx, r, 0.98 * r, sg * 0.11 * r, 0.85, sg * 0.2, fl, 0.032 * r, P);
-      else fang(ctx, r, 0.9 * r, sg * 0.16 * r, 0.45, sg * 0.75, fl * 0.8, 0.03 * r, P);
+      else if (V.closedFangs) fang(ctx, r, 0.9 * r, sg * 0.16 * r, 0.45, sg * 0.75, fl * 0.8, 0.03 * r, P);
     }
     // small ember eyes under a heavy brow
     for (let sg = -1; sg <= 1; sg += 2) {
@@ -593,7 +610,11 @@
       ctx.fillStyle = '#050403';
       ctx.beginPath(); ctx.ellipse(ex, ey, 0.08 * r, 0.055 * r, sg * 0.4, 0, TAU); ctx.fill();
       const dim = p.dead ? 0 : p.stun > 0.1 ? 0.45 + 0.35 * Math.sin(t * 17 + sg) : 1;
-      if (dim > 0) {
+      if (!V.ember) {   // a plain animal eye: dark, with a wet highlight
+        ctx.fillStyle = '#1a120c';
+        ctx.beginPath(); ctx.ellipse(ex, ey, 0.05 * r, 0.032 * r, sg * 0.45, 0, TAU); ctx.fill();
+        if (!p.dead) { ctx.fillStyle = 'rgba(255,248,236,0.75)'; ctx.beginPath(); ctx.arc(ex + 0.016 * r, ey - sg * 0.008 * r, 0.011 * r, 0, TAU); ctx.fill(); }
+      } else if (dim > 0) {
         ctx.save(); ctx.globalCompositeOperation = 'lighter';
         if (!low) {
           const gR = 0.22 * r * (1 + 0.5 * p.rage);
@@ -655,13 +676,15 @@
   A.Shapes.cavebear = function (ctx, e, t, look) {
     const r = e.r || 52, rs = e.rs || (e.rs = {});
     SEED = seedOf(e);
+    V = VARIANTS[look && look.variant] || VARIANTS.boss;
+    const P0 = palOf(look);
     const p = pose(e, t);
-    let P = PAL;
+    let P = P0;
     if (p.flash > 0.02) {   // hurt flash: wash the fur toward white
       const f = Math.round(p.flash * 5) / 10;
       if (!rs.bflash || rs.bflash.f !== f) {
-        rs.bflash = Object.assign({ f }, PAL);
-        for (const k of PAL_KEYS) rs.bflash[k] = mix(PAL[k], '#ffffff', f);
+        rs.bflash = Object.assign({ f }, P0);
+        for (const k of PAL_KEYS) rs.bflash[k] = mix(P0[k], '#ffffff', f);
       }
       P = rs.bflash;
     }
@@ -672,7 +695,7 @@
     const lx = -0.552 * c - 0.834 * s, ly = 0.552 * s - 0.834 * c;   // world light in the body frame
 
     ctx.save();
-    ctx.scale(1.08, 1.08);                            // drawn a touch past r so it towers; collision is unchanged
+    ctx.scale(V.scale, V.scale);                            // drawn a touch past r so it towers; collision is unchanged
     if (p.stun > 0.01) ctx.rotate(Math.sin(t * 2.6) * 0.16 * p.stun);
     if (p.crouch > 0.85 && p.paw > 0.5) ctx.translate(Math.sin(t * 61) * r * 0.012, Math.cos(t * 73) * r * 0.012);
     buildSpine(r, p, t, cyc);
@@ -692,7 +715,7 @@
     { const q = at(0); ctx.fillStyle = P.deep;   // stub tail, half buried in the rump fur
       ctx.beginPath(); ctx.ellipse(q.x - q.tx * 0.4 * r, q.y - q.ty * 0.4 * r, 0.14 * r, 0.1 * r, Math.atan2(q.ty, q.tx), 0, TAU); ctx.fill(); }
     body(ctx, r, p, P, lx, ly, low);
-    scars(ctx, r, p, t, low);
+    if (V.scars) scars(ctx, r, p, t, low);
     for (let sg = -1; sg <= 1; sg += 2) drawLeg(ctx, r, p, P, true, sg, t, cyc, 'above');
     head(ctx, e, t, r, p, P, low);
     snowKick(ctx, r, p, t);
