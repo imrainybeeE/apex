@@ -8,12 +8,39 @@ Read this file, then `docs/DESIGN.md`. In DESIGN.md, the **M1.5 — Rework** and
 
 ## 0. Do this next
 
-The boss works and is tuned, but **the user said it looks ugly** (it reads as a giant hamster). The user asked for this exact agent set. It's an explicit exception to the no-swarm rule, so don't add more agents.
+**The boss rework the user asked for (all four design answers are below; don't ask them again).** The user says the fight is unbalanced: phases 1–2 are too easy.
 
-1. Load the `subagent-playbook` skill. Write each brief from §5 and launch the four agents in **one message**, each owning separate files.
-2. While they run, don't touch their files. When each reports back, verify with its screenshots and a headless page load, then commit.
-3. Rebuild `dist/apex.html` and `dist/apex-lite.html` and send them to the user.
-4. Update this file (§4 and §5) at the end.
+1. **Phase 2 opens with the 360 attack.** The slam ring is the only 360° attack. When phase 2 starts (hp ≤ 66%), go from `phaseRoar` straight into `slamWind` instead of `stalk`. Force one more slam the first time hp drops to ≤ 50%: set a flag and take it at the next `pickAttack`.
+2. **Ancient amber before the final phase.** When hp first reaches ≤ 33%, don't enrage yet:
+   - The boss roars and backs off (invulnerable, not attacking).
+   - A glowing **amber shard with ancient DNA** (a trapped mosquito inside) streaks down from the sky with a thunder and impact flash. It lands in reach of the player, not under the boss.
+   - The player touches it and **evolves into the ancient form**: wolf → **dire wolf** (`direwolf`), bear → **short-faced bear** (`shortface`). Use the evolve FX, give a bigger body, and heal to full.
+   - That **calls in a pack of 3 allies**: gray wolves for the wolf, grizzlies for the bear. They run in from the edge with a howl or roar and fight the boss for the whole final phase. Boss attacks can knock them out.
+   - No soft-lock: the amber always lands somewhere reachable, and the boss waits until it's taken. Show a short tip ("Ancient amber! Grab it.").
+3. **Final phase: hard but fair.** Then phase 3 enrages as now, but harder: the boss heals to about 45% hp, windups get shorter, charges chain up to 3, slams come more often, and it targets allies too. With the pack it should be tougher than today, and a careless player dies on Normal.
+4. **Ancient art at the Old One's quality** (the user's words: "make the ancient wolf the same great quality"). Brief one **Opus** agent for this, owning `js/shapes-ancient.js` (new) and the `VARIANTS` table in `js/shapes-boss.js`. Its index.html tag is already in.
+   - **Dire wolf**: a new `A.Shapes.direwolf` plan plus `A.LOOKS.direwolf`, registered from that file. Heavier and broader than the gray wolf, with a huge skull and jaws, a thick ruff, a frosted coat and small eyes. Poses: walk, bite (`biteT`), howl (ability active), hurt.
+   - **Short-faced bear**: an `arctodus` variant of the cave bear plan (`A.LOOKS.shortface`, `plan: 'cavebear', variant: 'arctodus'`). Long legs, a short broad face, a tawny coat, and no scars or ember eyes.
+   - The agent must show 2–3 variants side by side first, verify in game with `?tier=t6_valley&sp=direwolf` (or `sp=shortface`), use one browser launch per screenshot pass, and run no smoke tests, no commits and no subagents.
+5. **You implement the mechanics** (Sonnet-level work, or do it yourself):
+   - `js/boss.js`: the amber state machine, amber drawing, allies, the phase 2 slams and the phase 3 tuning.
+   - Allies are **owned by boss.js** (`fight.allies`), not put in `G.entities`, so eco, eating and AI never see them. Update them in `update()`. Draw them in world space with `A.applyCam` + `A.drawCreature(ctx, ally, t)`; an ally needs `{id, sp, x, y, vx, vy, angle, r, phase, rs:{}, hp, maxHp, hurtT, biteT, alive, state}`. Each boss attack's hit test must also hurt allies.
+   - `js/core.js`:
+     - `playerRadius()` should multiply by `p.rMul || 1` (it re-eases `p.r` every frame).
+     - The ancient swap sets `p.sp`, `p.stats = A.playerStats(G.creature, sp)`, `p.ability` from `SPECIES[sp].ability`, `p.rMul ≈ 1.3`, and full hp.
+     - `rebirthChoices()` in the boss branch must map an ancient species back to its base (`SPECIES[sp].ancientOf`), so a retry starts as the wolf or bear again.
+   - `js/ui.js`: add `direwolf: 'howl', shortface: 'brace'` to `ICON_BY_SP`.
+   - `js/audio.js`: reuse existing sounds on new events (thunder on the amber fall, evolve on pickup, a howl or roar when allies arrive).
+   - The boss bot (`A.Boss.bot`) must walk to the amber, or `bossim` will stall.
+6. **Retune with `node tools/bossim.mjs '[["normal",1],["normal",2,"bear"],["easy",1],["scary",1]]'`**.
+   - Today: Normal wolf 91 s, bear 104–134 s, Easy 64 s, Scary 112 s.
+   - Target: Normal about 110–150 s with at most 1 bot death, Easy shorter and won reliably, Scary may cost deaths.
+   - Then shoot `node tools/boss-shots.mjs` (extend it with amber fall, evolve and allies) and do one headless boot of every tier with `tools/full-boot.mjs <file>`.
+7. Commit each verified unit, `git push`, and `node tools/deploy-pages.mjs`. Rebuild both dist files, send them to the user, and update §4 here.
+
+**Already done for this:** `SPECIES.direwolf` and `SPECIES.shortface` are in `js/config.js`, with `ancientOf`, facts and stronger howl/brace abilities; `validateConfig()` passes. The `<script src="js/shapes-ancient.js">` tag is in index.html and 404s harmlessly until the file exists. Nothing else for the rework exists yet.
+
+After the rework, the leftovers in §5.
 
 ## 1. How the user wants you to work
 
@@ -22,7 +49,7 @@ The boss works and is tuned, but **the user said it looks ugly** (it reads as a 
 - **The user sends messages mid-turn while playtesting** (bugs, requests, short screenshots). Add each to the current work and don't drop earlier items. Their language is casual; just act on the substance.
 - **No smoke runs while the user is playtesting** (they asked). Verify with targeted headless checks instead: one page load, the specific state, `pageerror` count.
 - **One browser launch per screenshot pass.** Each headless Chromium launch flashes a Dock icon. Use one Playwright script that takes many shots, never a loop of launches.
-- **Agents:** normally no swarms or Workflow runs, and a single subagent is fine. The §5 set is the user's explicit request. Always set `model` (Opus for design, Sonnet for implementation; never Fable).
+- **Agents:** no swarms or Workflow runs; a single subagent is fine (§0 uses one Opus art agent). Always set `model` (Opus for design, Sonnet for implementation; never Fable).
 - **Commit after each verified unit**, straight to `master` (no remote). End commits with the Co-Authored-By line from the system reminder.
 - **Keep this file current** at every milestone (finished feature, new tier, playtest round).
 - **Minecraft audio is in every build, including Google Sites** (the user's call: the site is private). It's Mojang's, so ask before any open public hosting.
@@ -34,6 +61,8 @@ The boss works and is tuned, but **the user said it looks ugly** (it reads as a 
 python3 tools/serve.py 8642          # dev server with no-cache headers (.claude/launch.json "apex"); file:// also works
 node tools/build-single.mjs          # dist/apex.html: whole game in one file, with music (~6 MB)
 node tools/build-single.mjs --no-music   # dist/apex-lite.html (~2 MB) if Google Sites rejects the big one
+node tools/full-boot.mjs <html>     # one launch: title, all six tiers, reach the boss; prints pageerrors
+node tools/deploy-pages.mjs [--dry]  # build HEAD in a clean worktree, boot-check, push to the public Pages repo
 python3 tools/build-audio.py         # regenerate js/sound-data.js + js/music-data.js from the user's Minecraft assets
 node tools/bossim.mjs '[["normal",1],["normal",2,"bear"],["easy",1],["scary",1]]'   # boss fight sims (fight only)
 node tools/boss-shots.mjs            # boss screenshots: arrival, each telegraph, enraged, death, victory (NOT RUN YET)
@@ -46,6 +75,10 @@ node tools/check.mjs smoke           # 35-step smoke (not during playtests); sim
 node tools/stubcheck.mjs <files> --eval "<js>"   # load scripts in a Node vm, e.g. to run validateConfig()
 ```
 
+- **GitHub**:
+  - Source is in the private repo `imrainybeeE/apex` (remote `origin`, branch `master`); push after each commit.
+  - The playable page is the public repo `imrainybeeE/apex-play` (`index.html` only, noindex), served at https://imrainybeee.github.io/apex-play/. Update it only with `tools/deploy-pages.mjs`.
+  - The user chose to keep Minecraft audio there and treat the link as unlisted.
 - **URL flags**:
   - Tiers: `?tier=t1_litter|t2_under|t3_pond|t4_meadow|t5_forest|t6_valley`, with `&sp=<species>`.
   - Testing: `&autoplay=1`, `&bot=balanced|greedy|passive`, `&seed=1`, `&speed=2`, `&debug=1`, `&skipEditor=1`, `&mute=1`.
@@ -74,7 +107,9 @@ Plain HTML + Canvas 2D + DOM. Classic scripts share `window.Apex`, with no build
 | `js/tutorial.js` | guided first minute (grow step counts meals; the bite caterpillar starts at 40% hp) |
 | `js/shapes-inverts.js` | bugs, worms, plants (incl. grass, berries, willow) |
 | `js/shapes-land.js` | quadruped/frog/lizard/serpent plans + land LOOKS (`matte` fur flag, `scars` marking, `cavebear` look) |
-| `js/shapes-air-water.js` | birds (heron, hawk, meadowlark, grouse) and fish |
+| `js/shapes-boss.js` | `A.Shapes.cavebear`: the Old One (poses from `G.boss.state`, cracking scars, frost) and, via `VARIANTS`, the grizzly (`LOOKS.bear`, `variant: 'grizzly'`) |
+| `js/logo.js` + `css/logo.css` | title logo: inline SVG `A.Logo.markup()` (six-biome pyramid A, the climb on the letters, claw-torn X) |
+| `js/shapes-air-water.js` | birds (heron, hawk, meadowlark, grouse; feathered rest and flight wings) and fish |
 | `js/world.js` | biomes: litter, undergrowth, pond, spring meadow, autumn forest (birch + pine zones, `World.zoneAt`), winter valley (creek is visual only) |
 | `js/fx.js` | particles, in-world HUD rings (growth, HP, ability arc), threat arrows (avoid `A.UI.hudRects()`), ability visuals, decomposition, evolve |
 | `js/ui.js` + `css/style.css` | ribbon, score, harmony dial, eco view, banners, tips, touch thumbs, menus, difficulty picker, dev menu, hold-R bar, boss bar + title card |
@@ -92,40 +127,22 @@ Conventions: wrap every file in an IIFE; no cross-module calls at load time (gua
   - Normal (default): growth ×1.25, every attack +15%.
   - Scary: base values (`CFG.DIFFICULTY`).
 - **Death**: the first death in a tier puts you back in the same tier at 50%; another death there drops a tier at 40%; a new tier resets this. Dying to the boss puts you back at full size for a fresh fight.
-- **Boss**: legend-beast cave bear, about 1.7× your size, with glowing scars.
+- **Boss**: The Old One, a shaggy hump-backed cave bear (shapes-boss.js), about 1.7× your size, with cracking cyan scars, ember eyes and a pose for every attack. Its telegraphs are striped and high-contrast on snow.
   - Sky darkens, horn, thunder; Warden, Ravager and Ender Dragon roars; C418 "Boss" music.
   - Sims (Normal): the wolf wins in 80–91 s, the bear in 104–134 s. Easy 64 s, Scary 112 s.
 - **Pacing**: the balanced bot wins the full 6-tier run in about 11–20 min with harmony 55–79. Pond recovers after greedy play.
-- **UI**: silhouette food-chain ribbon, rings around the creature, threat arrows that avoid the HUD, no-cache dev server.
+- **UI**: the title logo, a silhouette food-chain ribbon, rings around the creature, threat arrows that avoid the HUD, and the boss bar kept clear of pause on mobile.
+- **Art**: the valley has wind-sculpted drifts and a dark open-water creek with irregular ice edges (tiled maps, about 10 MB). Birds have feathered wings. The grizzly is drawn by the cave bear plan.
 
-## 5. Agent briefs (the user's plan; launch together)
+## 5. Open items after the boss rework (ask before visual changes)
 
-Each brief must name its files, a done-means, "one browser launch per screenshot pass", "no smoke runs, no commits, no subagents", and an "Out" line. End each with Blocked on me / Changed / Found.
-
-1. **Opus: boss redesign** (owns new `js/shapes-boss.js` and its `<script>` tag after shapes-land; may change `LOOKS.cavebear` and the `mark: 'scars'` code in shapes-land.js only).
-   - **Goal**: scary and tough. A massive hunched silhouette with a shoulder hump and a heavy skull, a long snout with fangs, thick clawed forelimbs, and a jagged matted fur outline, not a smooth tube. Glowing cyan claw scars that brighten and crack with damage, ember eyes, frost on the back, breath steam.
-   - **Poses**, keyed off `G.boss.state` and the entity:
-     - walk
-     - `chargeWind`: crouch and paw the ground
-     - `charge`: a stretched lunge
-     - `slamWind`: rearing up on its hind legs
-     - `roarWind` / `phaseRoar`: head up, jaws open
-     - `stunned`: stagger
-     - phase 3: raised hackles and a red glow
-   - **Readability**: must read on snow at any zoom. Run frontend-design and exhaust-the-design-space: 2–3 variants side by side first, then the best one.
-   - **Verify** with `tools/boss-shots.mjs`.
-2. **Opus: title logo** (owns the title markup in `js/ui.js` `buildTitle` plus new CSS for it, or a new `js/logo.js`).
-   - **Goal**: an extremely tough, nature-based "Apex" mark that references the whole game: the climb ant → beetle → frog → snake → fox → wolf/bear, the biomes and seasons, and the cave bear.
-   - **Format**: inline SVG or canvas; crisp at 390 px and 1440 px; `aria-label="Apex"`.
-   - **Process**: run frontend-design first, follow the CLAUDE.md avoid-list, show 2–3 variants before finishing.
-3. **Sonnet: boss pass** (owns `js/boss.js` telegraph drawing and the boss UI parts of ui.js/style.css only, after agent 1 lands, or coordinate by file).
-   - Run `tools/boss-shots.mjs` and fix what reads poorly: telegraphs, the health bar on mobile next to the pause button, the title card.
-   - Keep the fight numbers.
-4. **Sonnet: finish-up** (owns `js/world.js` and `js/shapes-air-water.js`).
-   - Fix the known gaps: snow drifts that look like soap bars in the valley, plain resting birds (hawk, meadowlark, grouse), and the creek (visual only; leave collision unless trivial).
-   - Then run `tools/land-shots.mjs` and report.
-
-After all of them: rebuild both dist files, do a headless boot check through all six tiers plus the boss, and send the files to the user.
+- The elk and deer depth-layer sprites in the valley look cartoonish and oversized.
+- The rebirth card runs to the bottom edge of the screen on desktop.
+- The eco view is crowded on mobile near the wolverine and gray wolf labels.
+- There's a dark world-edge band at the meadow's left edge, and the world's dark edge shows in some boss shots.
+- The boss sometimes spawns under the title card on arrival, and the `stunned` shot framing is off (test only).
+- The creek's foam wakes read as beads up close. The creek costs about 8 ms/frame in software raster. Options are one glint layer always, or glints only at high zoom (check with the user first).
+- Real-device checks the user hasn't done: Firefox, Windows, real-GPU fps, and the Google Sites embed size.
 
 ## 6. Known gaps and gotchas
 

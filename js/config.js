@@ -141,6 +141,13 @@
     bear: S('Grizzly Bear', 'Ursus arctos', 'Grizzlies eat berries, roots and fish as well as meat, and can smell food from kilometres away.',
       { playable: true, innate: { spikes: 1 }, omni: true,
         ability: { id: 'roll', name: 'Brace', blurb: 'Plant your feet and shrug off every hit for 2 seconds, knocking attackers back.', cd: 10, dur: 2, speedMul: 0.5, knock: 620, stunT: 0.4 } }),
+    // Ice Age forms, unlocked mid-boss-fight by the ancient amber (boss.js); not choosable on their own
+    direwolf: S('Dire Wolf', 'Aenocyon dirus', 'Dire wolves were real: heavier than any wolf alive today, with bone-crushing jaws. They hunted Ice Age horses and bison until about 13,000 years ago.',
+      { ancientOf: 'wolf', innate: { limbs: 1 },
+        ability: { id: 'spray', name: 'Dire howl', blurb: 'A howl that rattles the valley: everything in front of you flinches and slows.', cd: 8, arc: 160, range: 5, dmgMul: 0.5, slowMul: 0.45, slowT: 3 } }),
+    shortface: S('Short-faced Bear', 'Arctodus simus', 'The short-faced bear was one of the biggest meat-eating land mammals ever: standing up, it was over 3 metres tall. It died out about 11,000 years ago.',
+      { ancientOf: 'bear', innate: { spikes: 1 }, omni: true,
+        ability: { id: 'roll', name: 'Iron brace', blurb: 'Plant your feet and shrug off every hit for 2.5 seconds, throwing attackers back.', cd: 9, dur: 2.5, speedMul: 0.5, knock: 760, stunT: 0.6 } }),
     boar: S('Wild Boar', 'Sus scrofa', 'Boars plough up the soil with their snouts looking for roots and grubs, which helps new plants sprout.'),
     deer: S('Mule Deer', 'Odocoileus hemionus', 'Mule deer bounce on all four legs at once, a jump called stotting that shows hunters they are hard to catch.'),
     cavebear: S('The Old One', 'Ursus spelaeus', 'Cave bears were real: giant Ice Age bears up to twice the weight of a grizzly. They died out about 24,000 years ago.'),
